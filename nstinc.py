@@ -1,10 +1,12 @@
+
+# nstinc : navier stokes incompressible solver
+
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
 import dolfin
 from dolfin import *
-import wurlitzer
-from wurlitzer import pipes
 
 
 
@@ -45,7 +47,7 @@ T = 100
 theta = 0.5 # Crank Nicolson
 
 
-Re = 80.
+Re = 40.
 u_bar = 1.
 # u_in = Expression(("1.5*u_bar*4/(0.41*0.41)*x[1]*(0.41 - x[1])", "0."), u_bar=u_bar, degree=2)
 
@@ -109,7 +111,7 @@ def solve_navier_stokes2(W, nu, bcs):
 
 
 
-def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, theta):
+def solve_unsteady_navier_stokes_theta(W, nu, bcs, T, dt, theta):
     """Solver unsteady Navier-Stokes and write results
     to file"""
 
@@ -191,6 +193,7 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
     u, p = split(w)
 
     f = Constant((0., 0.))
+
     w_old = Function(W)
     u_old, p_old = split(w_old)
     
@@ -205,10 +208,10 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
 
     # Define variational forms
     v, q = TestFunctions(W)
-    F1 = ((11.0)*inner(u, v)/Constant(6*dt)*dx 
-      - (18.0)*inner(u_1, v)/Constant(6*dt)*dx 
-      + (9.0)*inner(u_2, v)/Constant(6*dt)*dx 
-      - (2.0)*inner(u_3, v)/Constant(6*dt)*dx 
+    F1 = (Constant(11.0)*inner(u, v)/Constant(6*dt)*dx 
+      - Constant(18.0)*inner(u_1, v)/Constant(6*dt)*dx 
+      + Constant(9.0)*inner(u_2, v)/Constant(6*dt)*dx 
+      - Constant(2.0)*inner(u_3, v)/Constant(6*dt)*dx 
       + nu*inner(grad(u), grad(v))*dx
       + inner(grad(u)*u, v)*dx
       - div(v)*p*dx
@@ -255,6 +258,7 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
                 w_2.vector()[:] = w.vector()
             if i == 2:
                 w_1.vector()[:] = w.vector()
+            file1.write(u, t)
 
     while t < T:
         
@@ -267,6 +271,7 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
         
         t += dt
         file1.write(u, t)
+        #file2.write(p, t)
         print(f"Time step {t} completed")
         
 
