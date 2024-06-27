@@ -10,13 +10,13 @@ from wurlitzer import pipes
 
 mesh = Mesh()
 mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim())
-with XDMFFile("mesh.xdmf") as infile:
+with XDMFFile("mesh/mesh.xdmf") as infile:
     infile.read(mesh)
     infile.read(mvc, "name_to_read")
 cf = cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
 mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim()-1)
-with XDMFFile("mf.xdmf") as infile:
+with XDMFFile("mesh/mf.xdmf") as infile:
     infile.read(mvc, "name_to_read")
 mf = cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
@@ -41,11 +41,11 @@ W = FunctionSpace(mesh, W_element)
 
 # Set parameter values
 dt = 0.01
-T = 20  
+T = 100  
 theta = 0.5 # Crank Nicolson
 
 
-Re = 60.
+Re = 80.
 u_bar = 1.
 # u_in = Expression(("1.5*u_bar*4/(0.41*0.41)*x[1]*(0.41 - x[1])", "0."), u_bar=u_bar, degree=2)
 
@@ -220,7 +220,7 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
 
 
     F2 = (   inner(u, v)/Constant(dt)*dx # Implit Euler discretization
-        - inner(u_old, v)/Constant(dt)*dx # Implit Euler discretization
+        - inner(u_old, v)/Constant(dt)*dx 
         + nu*inner(grad(u), grad(v))*dx
         + inner(grad(u)*u, v)*dx
         - div(v)*p*dx
@@ -239,13 +239,13 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
     solver2 = NonlinearVariationalSolver(problem2)
     solver2.parameters['newton_solver']['linear_solver'] = 'mumps'
     
-    file = XDMFFile('velocity_unsteady_navier_stokes2.xdmf')
+    file1 = XDMFFile('results/velocity_unsteady_navier_stokes2.xdmf')
+    file2 = XDMFFile('results/pressure_unsteady_navier_stokes2.xdmf')
     u, p = w.split()
 
     # Perform time-stepping
     t = 0
-    while t < T:
-        for i in range(3):
+    for i in range(3):
             w_old.vector()[:] = w.vector()
             solver2.solve()
             t += dt
@@ -255,7 +255,8 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
                 w_2.vector()[:] = w.vector()
             if i == 2:
                 w_1.vector()[:] = w.vector()
-        
+
+    while t < T:
         
         
         solver1.solve()
@@ -265,7 +266,7 @@ def solve_unsteady_navier_stokes_bdf3(W, nu, bcs, T, dt, theta):
         w_1.vector()[:] = w.vector()
         
         t += dt
-        file.write(u, t)
+        file1.write(u, t)
         print(f"Time step {t} completed")
         
 
