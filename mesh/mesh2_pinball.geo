@@ -156,7 +156,6 @@ Mesh.CharacteristicLengthMax = 0.7;
 
 
 
-
 // Generate the 2D mesh
 Mesh 2;
 
