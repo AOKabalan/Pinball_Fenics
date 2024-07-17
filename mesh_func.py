@@ -26,10 +26,10 @@ if __name__ == "__main__":
 
     # Create line mesh and write to "mf.xdmf"
     line_mesh = create_mesh(mesh_from_file, "line", prune_z=True)
-    meshio.write("mesh/mf.xdmf", line_mesh)
+    meshio.write("mesh/mf2.xdmf", line_mesh)
 
     # Create triangle mesh and write to "mesh.xdmf"
     triangle_mesh = create_mesh(mesh_from_file, "triangle", prune_z=True)
-    meshio.write("mesh/mesh.xdmf", triangle_mesh)
+    meshio.write("mesh/mesh2.xdmf", triangle_mesh)
 
     print(f"Meshes written to 'mf.xdmf' and 'mesh.xdmf' from '{input_file}'.")
