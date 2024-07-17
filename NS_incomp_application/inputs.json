@@ -1,0 +1,35 @@
+{
+    "final_time": 1.0,
+    "time_step": 0.000625,
+    "nu": 0.001,
+    "mesh_file": "mesh/mesh.xdmf",
+    "mesh_function_file": "mesh/mf.xdmf",
+    "results_dir":"results_BDF3",
+    "figures_dir":"figures",
+    "write_velocity": true,
+    "write_pressure": false,
+    "flag_drag_lift": true,
+    "boundary_conditions": [
+        {
+            "type": "Dirichlet",
+            "boundary_id": 2,
+            "sub_space": 0,
+            "value": "BoundaryFunction"
+        },
+        {
+            "type": "Dirichlet",
+            "boundary_id": 4,
+            "sub_space": 0,
+            "value": [0.0, 0.0]
+        },
+        {
+            "type": "Dirichlet",
+            "boundary_id": 5,
+            "sub_space": 0,
+            "value": [0.0, 0.0]
+        }
+    ],
+    "time_integration": "bdf3"
+    
+}
+
