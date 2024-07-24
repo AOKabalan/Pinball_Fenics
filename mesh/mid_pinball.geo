@@ -122,12 +122,12 @@ Plane Surface(8) = {8,1,2,3};
 
 
 
-RHO1 = 30;
+RHO1 = 20;
 
 Transfinite Curve{14} = RHO1*1.2;
 Transfinite Curve{29,31} = RHO1*1.5;
 Transfinite Curve{33,34} = RHO1*3;
-Transfinite Curve{27,28} = RHO1/3;
+Transfinite Curve{27,28} = RHO1/2.2;
 Transfinite Curve{1,2,3,4} = RHO1*1.5;
 Transfinite Curve{5,6,7,8} = RHO1*1.5;
 Transfinite Curve{9,10,11,12} = RHO1*1.5;
@@ -156,5 +156,5 @@ Mesh.CharacteristicLengthMax = 0.4;
 
 // Generate the 2D mesh
 Mesh 2;
-Save "fine_pinball.msh";
+Save "mid_pinball.msh";
 
