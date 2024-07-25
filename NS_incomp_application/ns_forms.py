@@ -18,7 +18,7 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
         u_2,_ = split(w_2)
         u_3 = None
         
-        F = get_variational_form("bdf1", u, u_1, p, v, q, dt, nu, u_2, u_3,_)
+        F = get_variational_form("bdf1", u, u_1, p, v, q, dt, nu,p_1, u_2, u_3)
         problem = NonlinearVariationalProblem(F, w, bcs, derivative(F, w))
         solver = NonlinearVariationalSolver(problem)
         solver.parameters['newton_solver']['linear_solver'] = 'mumps'
@@ -32,6 +32,8 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
             w_1.vector()[:] = w.vector()
             write_velocity_func(u, t)
             write_pressure_func(p, t)
+            print(f"Time step {t} completed")
+
     
     elif method == "bdf3":
         w_2 = Function(W)
@@ -39,7 +41,7 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
         w_3 = Function(W)
         u_3,_ = split(w_3)
 
-        F = get_variational_form("bdf1", u, u_1, p, v, q, dt, nu, u_2, u_3,_)
+        F = get_variational_form("bdf1", u, u_1, p, v, q, dt, nu, p_1, u_2, u_3)
         problem = NonlinearVariationalProblem(F, w, bcs, derivative(F, w))
         solver = NonlinearVariationalSolver(problem)
         u, p = w.split()
@@ -55,6 +57,10 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
             w_1.vector()[:] = w.vector()
             write_velocity_func(u, t)
             write_pressure_func(p, t)
+            print(f"Time step {t} completed")
+
+
+
 
     return w_1, w_2, w_3, t
 
@@ -65,25 +71,8 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
     w = Function(W)
     u, p = split(w)
 
-    w_1 = Function(W)
-    u_1, p_1 = split(w_1)
 
-    if time_integration_method == "bdf2":
-        w_2 = Function(W)
-        u_2, p_2 = split(w_2)
-        u_3 = None
-        p_old =None
-
-    elif time_integration_method == "bdf3":
-        w_2 = Function(W)
-        u_2, p_2 = split(w_2)
-        w_3 = Function(W)
-        u_3, p_3 = split(w_3)
-        p_old =None
-    else:
-        u_2 = None
-        u_3 = None
-        p_old = None
+     
 
 
     f = Constant((0., 0.))
@@ -122,16 +111,33 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
         calculate_drag_lift_func = noop_drag_lift
         save_drag_lift_func = write_nothing
 
-    u_t, c_ds, c_ls, ts, p_diffs = initialize_drag_lift(w, nu, ds_circle, t, n1)
+
 
     # Define variational forms
     v, q = TestFunctions(W)
 
     w_1, w_2, w_3, t = initialize_history(time_integration_method, w, W, bcs, get_variational_form, U_inlet, t, dt, nu,write_velocity_func,write_pressure_func) if time_integration_method in ["bdf2", "bdf3"] else (Function(W), None, None, t)
     
+    
+    u_1, p_1 = split(w_1)
 
+    if time_integration_method == "bdf2":
+        
+        u_2, p_2 = split(w_2)
+        u_3 = None
+     
 
-    F = get_variational_form(time_integration_method, u, u_1, p, v, q, dt, nu, u_2, u_3,p_old)
+    elif time_integration_method == "bdf3":
+        
+        u_2, p_2 = split(w_2)
+        
+        u_3, p_3 = split(w_3)
+     
+    else:
+        u_2 = None
+        u_3 = None
+
+    F = get_variational_form(time_integration_method, u, u_1, p, v, q, dt, nu,p_1,u_2, u_3)
 
     J = derivative(F, w)
     # Create solver
@@ -140,24 +146,25 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
     solver.parameters['newton_solver']['linear_solver'] = 'mumps'
 
     u, p = w.split()
-
-    while t < T:
-   
-        solver.solve()
-        if time_integration_method == "bdf1":
-            w_1.vector()[:] = w.vector()
-        elif time_integration_method == "bdf2":
-            w_2.vector()[:] = w_1.vector()
-            w_1.vector()[:] = w.vector()
-        elif time_integration_method == "bdf3":
-            w_3.vector()[:] = w_2.vector()
-            w_2.vector()[:] = w.vector()
-            w_1.vector()[:] = w.vector()
+    
+    while t < T - DOLFIN_EPS:
         t += dt
-        U_inlet.t = t                                       
+        # U_inlet.t = t   
+        solver.solve()
+        if time_integration_method == "bdf2":
+            w_2.assign(w_1)
+            w_1.assign(w)
+        elif time_integration_method == "bdf3":
+            w_3.assign(w_2)
+            w_2.assign(w_1)
+            w_1.assign(w)
+        else:
+            w_1.assign(w)
+                                            
         c_ds, c_ls, p_diffs, ts = calculate_drag_lift_func()
         write_velocity_func(u, t)
         write_pressure_func(p, t)
+
 
         
 
@@ -171,15 +178,16 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
     if write_pressure:
         f_pressure.close()
 
-def get_variational_form(method, u, u_1, p, v, q, dt, nu, u_2=0, u_3=0,p_old=0):
+def get_variational_form(method, u, u_1, p, v, q, dt, nu,p_1, u_2=0, u_3=0):
     if method == "theta":
+        theta =0.5
         F = ( Constant(1/dt)*dot(u - u_1, v)
           + Constant(theta)*nu*inner(grad(u), grad(v))
           + Constant(theta)*dot(dot(grad(u), u), v)
           + Constant(1-theta)*nu*inner(grad(u_1), grad(v))
           + Constant(1-theta)*dot(dot(grad(u_1), u_1), v)
           - Constant(theta)*p*div(v)
-          - Constant(1-theta)*p_old*div(v)
+          - Constant(1-theta)*p_1*div(v)
           - q*div(u)
         )*dx
         
@@ -189,7 +197,7 @@ def get_variational_form(method, u, u_1, p, v, q, dt, nu, u_2=0, u_3=0,p_old=0):
         + nu*inner(grad(u), grad(v))*dx
         + inner(grad(u)*u, v)*dx
         - div(v)*p*dx
-        + div(u)*q*dx
+        - div(u)*q*dx
         )
     elif method == "bdf2":
         F = (Constant(1/dt)*(Constant(1.5)*inner(u,v) - Constant(2.0)*inner(u_1,v) + Constant(0.5)*inner(u_2, v))*dx 
@@ -199,6 +207,8 @@ def get_variational_form(method, u, u_1, p, v, q, dt, nu, u_2=0, u_3=0,p_old=0):
         - div(u)*q*dx
      
     )
+
+
     elif method == "bdf3":
         F = (Constant(11.0)*inner(u, v)/Constant(6*dt)*dx 
             - Constant(18.0)*inner(u_1, v)/Constant(6*dt)*dx 
@@ -207,7 +217,7 @@ def get_variational_form(method, u, u_1, p, v, q, dt, nu, u_2=0, u_3=0,p_old=0):
             + nu*inner(grad(u), grad(v))*dx
             + inner(grad(u)*u, v)*dx
             - div(v)*p*dx
-            + div(u)*q*dx
+            - div(u)*q*dx
             )
     return F
 

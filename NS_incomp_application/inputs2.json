@@ -1,20 +1,27 @@
 {
-    "final_time": 8,
-    "time_step": 0.000625,
-    "nu": 0.001,
+    "final_time": 50,
+    "time_step": 0.05,
+    "nu": 0.01875,
     "mesh_file": "mesh/mesh.xdmf",
     "mesh_function_file": "mesh/mf.xdmf",
-    "results_dir":"results_bdf3",
+    "results_dir":"results_bdf3_pinball",
     "figures_dir":"figures",
     "write_velocity": true,
-    "write_pressure": false,
-    "flag_drag_lift": true,
+    "write_pressure": true,
+    "flag_drag_lift": false,
     "boundary_conditions": [
         {
             "type": "Dirichlet",
-            "boundary_id": 2,
+            "boundary_id": 1,
             "sub_space": 0,
-            "value": "BoundaryFunction"
+            "value": [1.0, 0.0]
+        },
+
+        {
+            "type": "Dirichlet",
+            "boundary_id": 3,
+            "sub_space": 0,
+            "value": [1.0, 0.0]
         },
         {
             "type": "Dirichlet",
@@ -27,8 +34,16 @@
             "boundary_id": 5,
             "sub_space": 0,
             "value": [0.0, 0.0]
+        },
+        {
+            "type": "Dirichlet",
+            "boundary_id": 6,
+            "sub_space": 0,
+            "value": [0.0, 0.0]
         }
+
     ],
     "time_integration": "bdf3"
     
 }
+
