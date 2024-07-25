@@ -1,23 +1,60 @@
 from dolfin import *
 import json
 from ns_forms import solve_unsteady_navier_stokes
+import numpy as np
 from visualize_benchmark import visualize_bench
 import os
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 
 class BoundaryFunction(UserExpression):
     def __init__(self, t, **kwargs):
         super().__init__(**kwargs)
         self.t = t
 
+    # def eval(self, values, x):
+    #     U = 1.5*sin(pi*self.t/8)
+    #     values[0] = 4*U*x[1]*(0.41-x[1])/pow(0.41, 2)
+    #     values[1] = 0
     def eval(self, values, x):
-        U = 1.5*sin(pi*self.t/8)
+        U = 1.5
+        
         values[0] = 4*U*x[1]*(0.41-x[1])/pow(0.41, 2)
         values[1] = 0
 
     def value_shape(self):
         return (2,)
 
+# Visualize the mesh and boundaries with different colors
+def plot_mesh_and_boundaries(mesh, mf):
+    plt.figure()
+    
+    # Get the unique boundary IDs
+    boundary_ids = np.unique(mf.array())
+    
+    # Create a colormap
+    cmap = plt.get_cmap("tab20", len(boundary_ids))
+    
+    fig, ax = plt.subplots()
+ 
 
+    # Plot each boundary with a different color
+    for i, boundary_id in enumerate(boundary_ids):
+        color = cmap(i / len(boundary_ids))
+        
+        # Extract facets with this boundary id
+        boundary_facets = [facet for facet in cpp.mesh.facets(mesh) if mf[facet.index()] == boundary_id]
+        
+        for facet in boundary_facets:
+            coords = facet.entities(0)
+            pts = mesh.coordinates()[coords]
+            polygon = plt.Polygon(pts, closed=True, fill=None, edgecolor=color, linewidth=2)
+            ax.add_patch(polygon)
+        legend_patch = plt.Line2D([0], [0], color=color, lw=2, label=f'Boundary ID {boundary_id}')
+        ax.add_line(legend_patch)
+    plt.legend()
+    plt.title("Mesh with Boundaries")
+    plt.show()
 
 def load_config(config_file):
     with open(config_file, 'r') as file:
@@ -25,7 +62,7 @@ def load_config(config_file):
     return config
 
 # Load configuration from JSON file
-config = load_config('inputs.json')
+config = load_config('inputs2.json')
 
 # Access configuration values
 
@@ -50,6 +87,9 @@ with XDMFFile(mesh_function_file) as infile:
     infile.read(mvc, "name_to_read")
 mf = cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
+
+# # Call the visualization function
+# plot_mesh_and_boundaries(mesh, mf)
 
 V_element = VectorElement("Lagrange", mesh.ufl_cell(), 2)
 Q_element = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
@@ -108,9 +148,12 @@ solve_unsteady_navier_stokes(
     U_inlet= U_inlet,
     write_velocity=config.get('write_velocity', True),
     write_pressure=config.get('write_pressure', False),
-    flag_drag_lift=config.get('flag_drag_lift', True),
+    flag_drag_lift=config.get('flag_drag_lift', False),
     results_dir=config.get('results_dir', "results/")
     )
 
-os.makedirs(config['figures_dir'], exist_ok=True)
-visualize_bench(config['time_integration'],config['results_dir'])
+flag_drag_lift=config.get('flag_drag_lift', False),
+# if flag_drag_lift :
+
+#     os.makedirs(config['figures_dir'], exist_ok=True)
+#     visualize_bench(config['time_integration'],config['results_dir'])

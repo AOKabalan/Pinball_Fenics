@@ -3,6 +3,54 @@ import mshr
 import matplotlib.pyplot as plt
 
 
+def build_space2(u_in):
+    """Prepare data for DGF benchmark. Return function
+    space, list of boundary conditions and surface measure
+    on the cylinder."""
+    mesh_file = "mesh/mesh2.xdmf"
+    mesh_function_file = "mesh/mf2.xdmf"
+    mesh = Mesh()
+    mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim())
+    with XDMFFile(mesh_file) as infile:
+        infile.read(mesh)
+        infile.read(mvc, "name_to_read")
+    cf = cpp.mesh.MeshFunctionSizet(mesh, mvc)
+
+    mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim()-1)
+    with XDMFFile(mesh_function_file) as infile:
+        infile.read(mvc, "name_to_read")
+    mf = cpp.mesh.MeshFunctionSizet(mesh, mvc)
+
+
+    V_element = VectorElement("Lagrange", mesh.ufl_cell(), 2)
+    Q_element = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+    W_element = MixedElement(V_element, Q_element) # Taylor-Hood
+    W = FunctionSpace(mesh, W_element)
+
+
+        # Define boundary conditions
+    #inlet is 2
+    #outlet is 3
+    #walls are 4
+    #cylinder is 5
+    # Build function spaces (Taylor-Hood)
+    P2 = VectorElement("P", mesh.ufl_cell(), 2)
+    P1 = FiniteElement("P", mesh.ufl_cell(), 1)
+    TH = MixedElement([P2, P1])
+    W = FunctionSpace(mesh, TH)
+
+    # Prepare Dirichlet boundary conditions
+    bc_walls = DirichletBC(W.sub(0), (0, 0), mf, 4)
+    bc_cylinder = DirichletBC(W.sub(0), (0, 0), mf, 5)
+    bc_in = DirichletBC(W.sub(0), u_in, mf, 2)
+    bcs = [bc_cylinder, bc_walls, bc_in]
+
+    # Prepare surface measure on cylinder
+    ds_circle = Measure("ds", subdomain_data=mf, subdomain_id=5)
+
+    return W, bcs, ds_circle
+
+
 def build_space(N_circle, N_bulk, u_in):
     """Prepare data for DGF benchmark. Return function
     space, list of boundary conditions and surface measure
