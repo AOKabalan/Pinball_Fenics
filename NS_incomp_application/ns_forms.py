@@ -64,6 +64,40 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
 
     return w_1, w_2, w_3, t
 
+def solve_steady_navier_stokes(W,nu,bcs,results_dir):
+
+    filename_velocity = f'{results_dir}/velocity_steady_navier_stokes.xdmf'
+    filename_pressure = f'{results_dir}/pressure_steady_navier_stokes.xdmf'
+    f_velocity = XDMFFile(filename_velocity)
+    f_pressure = XDMFFile(filename_pressure)
+    v, q = TestFunctions(W)
+    delta_up = TrialFunction(W) # Trial function in the mixed space 
+    w = Function(W)
+    u, p = split(w)
+    f = Constant((0., 0.))
+    # Residual
+    F = (   nu*inner(grad(u), grad(v))*dx
+        + inner(grad(u)*u, v)*dx
+        - div(v)*p*dx
+        + div(u)*q*dx
+        - inner(f, v)*dx
+        )
+    # Jacobian
+    J = derivative(F, w, delta_up)
+    u, p = w.split()
+    snes_solver_parameters = {"nonlinear_solver": "snes",
+                          "snes_solver": {"linear_solver": "mumps",
+                                          "maximum_iterations": 20,
+                                          "report": True,
+                                          "error_on_nonconvergence": True}}
+    problem = NonlinearVariationalProblem(F, w, bcs, J)
+    solver  = NonlinearVariationalSolver(problem)
+    solver.parameters.update(snes_solver_parameters)
+    solver.solve()
+    f_velocity.write(u)
+    f_pressure.write(p)
+
+
 def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, theta=0.5, ds_circle=None, n1=None, U_inlet=None, write_velocity=True, write_pressure=False, flag_drag_lift=False, results_dir="results/"):
     """Solve unsteady Navier-Stokes and write results to file"""
 

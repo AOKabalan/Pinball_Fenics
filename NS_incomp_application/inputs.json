@@ -9,6 +9,7 @@
     "write_velocity": true,
     "write_pressure": false,
     "flag_drag_lift": true,
+    "steady_solver" : false,
     "boundary_conditions": [
         {
             "type": "Dirichlet",

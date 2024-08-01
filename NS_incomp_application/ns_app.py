@@ -1,6 +1,7 @@
 from dolfin import *
 import json
 from ns_forms import solve_unsteady_navier_stokes
+from ns_forms import solve_steady_navier_stokes
 import numpy as np
 from visualize_benchmark import visualize_bench
 import os
@@ -133,9 +134,16 @@ n1 = -FacetNormal(mesh) #Normal pointing out of obstacle
 
 
 #Solve and Save results
+if config['steady_solver']:
 
-# Call the function with specific arguments from the JSON configuration
-solve_unsteady_navier_stokes(
+    solve_steady_navier_stokes(W=W,  
+    nu=config['nu'],
+    bcs=bcs,
+    results_dir=config.get('results_dir', "results/"))
+
+
+else:
+    solve_unsteady_navier_stokes(
     W=W,  
     nu=config['nu'],
     bcs=bcs,  
