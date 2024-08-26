@@ -1,15 +1,17 @@
 {
     "final_time": 800,
     "time_step": 0.1,
-    "nu": 0.15,
+    "nu": 0.01875,
     "mesh_file": "mesh/mesh.xdmf",
     "mesh_function_file": "mesh/mf.xdmf",
     "results_dir":"results_bdf3_pinball",
     "figures_dir":"figures",
     "write_velocity": true,
     "write_pressure": false,
-    "flag_drag_lift": false,
-    "steady_solver" : true,
+    "flag_drag_lift": true,
+    "steady_solver" : false,
+    "u0_file":"velocity_checkpoint.xdmf",
+    "flag_initial_u": false,
     "boundary_conditions": [
         {
             "type": "Dirichlet",
