@@ -5,24 +5,37 @@ from matplotlib import colors
 import dolfin
 from dolfin import *
 
-def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, nu,write_velocity_func,write_pressure_func):
+def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, nu,write_velocity_func,write_pressure_func,flag_initial_u,u0_file):
     """Initialize history variables for higher-order methods like BDF2 and BDF3"""
     u, p = split(w)
     w_1 = Function(W)
     u_1, p_1 = split(w_1)
     w_2 = None
-    w_3 = None
+    w_3 = None 
+    
+    if flag_initial_u:
+        xdmf_file = XDMFFile(u0_file)
+        V = W.sub(0).collapse()  # Extract the velocity subspace
+        u_initial = Function(V)
+        xdmf_file.read_checkpoint(u_initial, "u_out", 0)
+        w_initial = Function(W)
+        assign(w_initial.sub(0), u_initial)
+
     v, q = TestFunctions(W)
     if method == "bdf2":
         w_2 = Function(W)
         u_2,_ = split(w_2)
         u_3 = None
         
+        
         F = get_variational_form("bdf1", u, u_1, p, v, q, dt, nu,p_1, u_2, u_3)
         problem = NonlinearVariationalProblem(F, w, bcs, derivative(F, w))
         solver = NonlinearVariationalSolver(problem)
         solver.parameters['newton_solver']['linear_solver'] = 'mumps'
         u, p = w.split()
+        if flag_initial_u:
+            w_1.vector()[:] = w_intitial.vector()
+
         for _ in range(2):
 
             solver.solve()
@@ -45,7 +58,8 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
         problem = NonlinearVariationalProblem(F, w, bcs, derivative(F, w))
         solver = NonlinearVariationalSolver(problem)
         u, p = w.split()
-
+        if flag_initial_u:
+            w_1.vector()[:] = w_initial.vector()
         for _ in range(3):
             
             
@@ -64,7 +78,7 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
 
     return w_1, w_2, w_3, t
 
-def solve_steady_navier_stokes(W,nu,bcs,results_dir):
+def solve_steady_navier_stokes(W,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initial_u,u0_file,results_dir):
 
     filename_velocity = f'{results_dir}/velocity_steady_navier_stokes.xdmf'
     filename_pressure = f'{results_dir}/pressure_steady_navier_stokes.xdmf'
@@ -75,6 +89,16 @@ def solve_steady_navier_stokes(W,nu,bcs,results_dir):
     w = Function(W)
     u, p = split(w)
     f = Constant((0., 0.))
+    filename_velocity_checkpoint = f'velocity_checkpoint.xdmf'
+    f_velocity_checkpoint = XDMFFile(filename_velocity_checkpoint)
+   
+    if flag_initial_u:
+        xdmf_file = XDMFFile(u0_file)
+        V = W.sub(0).collapse()  # Extract the velocity subspace
+        u_initial = Function(V)
+        xdmf_file.read_checkpoint(u_initial, "u_out", 0)
+        w_initial = Function(W)
+        assign(w_initial.sub(0), u_initial) 
     # Residual
     F = (   nu*inner(grad(u), grad(v))*dx
         + inner(grad(u)*u, v)*dx
@@ -96,9 +120,13 @@ def solve_steady_navier_stokes(W,nu,bcs,results_dir):
     solver.solve()
     f_velocity.write(u)
     f_pressure.write(p)
+    if flag_drag_lift:
+        u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1)
+        save_drag_lift(c_ds,c_ls,ts,results_dir)
 
 
-def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, theta=0.5, ds_circle=None, n1=None, U_inlet=None, write_velocity=True, write_pressure=False, flag_drag_lift=False, results_dir="results/"):
+
+def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, theta=0.5, ds_circle=None, n1=None, U_inlet=None, write_velocity=True, write_pressure=False, flag_drag_lift=False, flag_initial_u= False,u0_file="results/velocity.xdmf",results_dir="results/"):
     """Solve unsteady Navier-Stokes and write results to file"""
 
     # Current and old solution
@@ -106,7 +134,9 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
     u, p = split(w)
 
 
-     
+    filename_velocity_checkpoint = f'velocity_checkpoint.xdmf'
+    f_velocity_checkpoint = XDMFFile(filename_velocity_checkpoint)
+   
 
 
     f = Constant((0., 0.))
@@ -137,10 +167,10 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
 
 
     if flag_drag_lift:
-        u_t, c_ds, c_ls, ts, p_diffs = initialize_drag_lift(w, nu, ds_circle, t, n1)
+        u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1, t)
 
-        calculate_drag_lift_func = lambda: calculate_drag_lift(nu, u_t, p, n1, ds_circle, ts, c_ds, c_ls, p_diffs, t)
-        save_drag_lift_func = lambda: save_drag_lift(p_diffs, c_ds, c_ls, ts, results_dir)
+        calculate_drag_lift_func = lambda: calculate_drag_lift(nu, u_t, p, n1, ds_circle, ts, c_ds, c_ls, t)
+        save_drag_lift_func = lambda: save_drag_lift( c_ds, c_ls, ts, results_dir)
     else:
         calculate_drag_lift_func = noop_drag_lift
         save_drag_lift_func = write_nothing
@@ -150,7 +180,7 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
     # Define variational forms
     v, q = TestFunctions(W)
 
-    w_1, w_2, w_3, t = initialize_history(time_integration_method, w, W, bcs, get_variational_form, U_inlet, t, dt, nu,write_velocity_func,write_pressure_func) if time_integration_method in ["bdf2", "bdf3"] else (Function(W), None, None, t)
+    w_1, w_2, w_3, t = initialize_history(time_integration_method, w, W, bcs, get_variational_form, U_inlet, t, dt, nu,write_velocity_func,write_pressure_func,flag_initial_u,u0_file) if time_integration_method in ["bdf2", "bdf3"] else (Function(W), None, None, t)
     
     
     u_1, p_1 = split(w_1)
@@ -195,7 +225,7 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
         else:
             w_1.assign(w)
                                             
-        c_ds, c_ls, p_diffs, ts = calculate_drag_lift_func()
+        c_ds, c_ls,  ts = calculate_drag_lift_func()
         write_velocity_func(u, t)
         write_pressure_func(p, t)
 
@@ -203,8 +233,8 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
         
 
         print(f"Time step {t} completed")
-
-    save_drag_lift(p_diffs, c_ds, c_ls, ts,results_dir)
+    f_velocity_checkpoint.write_checkpoint(u, "u_out", 0, XDMFFile.Encoding.HDF5, False)
+    save_drag_lift( c_ds, c_ls, ts,results_dir)
     
     if write_velocity:
         f_velocity.close()
@@ -258,39 +288,39 @@ def get_variational_form(method, u, u_1, p, v, q, dt, nu,p_1, u_2=0, u_3=0):
 
 
   
-def initialize_drag_lift(w, nu, ds_circle, t, n1):
+def initialize_drag_lift(w, nu, ds_circle,n1,t = 0):
         # Compute reference quantities
    
     u,p = w.split()
     
     u_t = inner(as_vector((n1[1], -n1[0])), u)
-    drag = assemble(2/0.1*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
-    lift = assemble(-2/0.1*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
-    p_diffs = [p(0.15,0.2)-p(0.25,0.2)]
+    drag = assemble(2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
+    lift = assemble(-2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
+   # p_diffs = [p(0.15,0.2)-p(0.25,0.2)]
     #p_diffs = [p(Point(0.15, 0.2)) - p(Point(0.25, 0.2))]
     
     c_ds = [drag]
     c_ls = [lift]
     ts = [t]
-    return u_t, c_ds, c_ls, ts, p_diffs
+    return u_t, c_ds, c_ls, ts,
 
-def calculate_drag_lift(nu,u_t,p,n1,ds_circle,ts,c_ds, c_ls, p_diffs,t):
+def calculate_drag_lift(nu,u_t,p,n1,ds_circle,ts,c_ds, c_ls,t=0):
 
     c_ds.append(assemble(
-        2/0.1*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle))
+        2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle))
     c_ls.append(assemble(
-        -2/0.1*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle))
+        -2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle))
 
  
-    p_diffs.append(p(0.15,0.2)-p(0.25,0.2))
+    #p_diffs.append(p(0.15,0.2)-p(0.25,0.2))
    
 
     ts.append(t)
     
-    return c_ds, c_ls, p_diffs, ts
+    return c_ds, c_ls, ts
 
-def save_drag_lift(p_diffs,c_ds,c_ls,ts, results_dir="results/"):
-    np.savez(results_dir+"drag_lift_results", dp=np.array(p_diffs),
+def save_drag_lift(c_ds,c_ls,ts, results_dir="results/"):
+    np.savez(results_dir+"drag_lift_results",
         CD=np.array(c_ds), CL=np.array(c_ls),
         t=ts)
 

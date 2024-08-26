@@ -127,8 +127,14 @@ bcs = apply_boundary_conditions(W, mf, boundary_conditions,U_inlet)
 
 
 
-# Prepare surface measure on cylinder used for drag and lift
-ds_circle = Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=5)
+# Prepare surface measure on the three cylinders used for drag and lift
+ds_circle_4 = Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=4)
+ds_circle_5 = Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=5)
+ds_circle_6 = Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=6)
+
+ds_circle = ds_circle_4 + ds_circle_5 + ds_circle_6
+
+#ds_circle = Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=4,5,6)
 
 n1 = -FacetNormal(mesh) #Normal pointing out of obstacle
 
@@ -139,6 +145,11 @@ if config['steady_solver']:
     solve_steady_navier_stokes(W=W,  
     nu=config['nu'],
     bcs=bcs,
+    ds_circle = ds_circle,
+    n1 = n1,
+    flag_drag_lift=config.get('flag_drag_lift', False),
+    flag_initial_u=config.get('flag_initial_u', False),
+    u0_file = config.get('u0_file', "results/velocity.xdmf"),
     results_dir=config.get('results_dir', "results/"))
 
 
@@ -157,6 +168,8 @@ else:
     write_velocity=config.get('write_velocity', True),
     write_pressure=config.get('write_pressure', False),
     flag_drag_lift=config.get('flag_drag_lift', False),
+    flag_initial_u=config.get('flag_initial_u', False),
+    u0_file = config.get('u0_file', "results/velocity.xdmf"),
     results_dir=config.get('results_dir', "results/")
     )
 
