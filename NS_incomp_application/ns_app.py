@@ -97,6 +97,8 @@ Q_element = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
 W_element = MixedElement(V_element, Q_element) # Taylor-Hood
 W = FunctionSpace(mesh, W_element)
 
+#Function for vorticity 
+Q = FunctionSpace(mesh, "Lagrange", 1)
 
     # Define boundary conditions
 #inlet is 2
@@ -143,6 +145,7 @@ n1 = -FacetNormal(mesh) #Normal pointing out of obstacle
 if config['steady_solver']:
 
     solve_steady_navier_stokes(W=W,  
+    Q=Q,
     nu=config['nu'],
     bcs=bcs,
     ds_circle = ds_circle,
@@ -150,6 +153,8 @@ if config['steady_solver']:
     flag_drag_lift=config.get('flag_drag_lift', False),
     flag_initial_u=config.get('flag_initial_u', False),
     u0_file = config.get('u0_file', "results/velocity.xdmf"),
+    flag_write_checkpoint =config.get('flag_write_checkpoint', False), 
+    flag_save_vorticity =config.get('flag_save_vorticity', False), 
     results_dir=config.get('results_dir', "results/"))
 
 
@@ -170,6 +175,8 @@ else:
     flag_drag_lift=config.get('flag_drag_lift', False),
     flag_initial_u=config.get('flag_initial_u', False),
     u0_file = config.get('u0_file', "results/velocity.xdmf"),
+    flag_write_checkpoint =config.get('flag_write_checkpoint', False), 
+    flag_save_vorticity =config.get('flag_save_vorticity', False), 
     results_dir=config.get('results_dir', "results/")
     )
 

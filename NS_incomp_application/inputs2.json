@@ -1,52 +1,65 @@
 {
-    "final_time": 800,
-    "time_step": 0.1,
-    "nu": 0.01875,
-    "mesh_file": "mesh/mesh.xdmf",
-    "mesh_function_file": "mesh/mf.xdmf",
-    "results_dir":"results_bdf3_pinball",
-    "figures_dir":"figures",
-    "write_velocity": true,
-    "write_pressure": false,
-    "flag_drag_lift": true,
-    "steady_solver" : false,
-    "u0_file":"velocity_checkpoint.xdmf",
-    "flag_initial_u": false,
-    "boundary_conditions": [
-        {
-            "type": "Dirichlet",
-            "boundary_id": 1,
-            "sub_space": 0,
-            "value": [1.0, 0.0]
-        },
-
-        {
-            "type": "Dirichlet",
-            "boundary_id": 3,
-            "sub_space": 0,
-            "value": [1.0, 0.0]
-        },
-        {
-            "type": "Dirichlet",
-            "boundary_id": 4,
-            "sub_space": 0,
-            "value": [0.0, 0.0]
-        },
-        {
-            "type": "Dirichlet",
-            "boundary_id": 5,
-            "sub_space": 0,
-            "value": [0.0, 0.0]
-        },
-        {
-            "type": "Dirichlet",
-            "boundary_id": 6,
-            "sub_space": 0,
-            "value": [0.0, 0.0]
-        }
-
-    ],
-    "time_integration": "bdf3"
-    
+  "final_time": 108,
+  "time_step": 12,
+  "nu": 0.015,
+  "mesh_file": "mesh/mesh.xdmf",
+  "mesh_function_file": "mesh/mf.xdmf",
+  "results_dir": "results_bdf3_pinball_steady",
+  "figures_dir": "figures",
+  "write_velocity": true,
+  "write_pressure": false,
+  "flag_drag_lift": true,
+  "steady_solver": true,
+  "u0_file": "velocity_checkpoint.xdmf",
+  "flag_initial_u": false,
+  "flag_write_checkpoint": false,
+  "flag_save_vorticity": false,
+  "boundary_conditions": [
+    {
+      "type": "Dirichlet",
+      "boundary_id": 1,
+      "sub_space": 0,
+      "value": [
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "type": "Dirichlet",
+      "boundary_id": 3,
+      "sub_space": 0,
+      "value": [
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "type": "Dirichlet",
+      "boundary_id": 4,
+      "sub_space": 0,
+      "value": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "type": "Dirichlet",
+      "boundary_id": 5,
+      "sub_space": 0,
+      "value": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "type": "Dirichlet",
+      "boundary_id": 6,
+      "sub_space": 0,
+      "value": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "time_integration": "bdf3"
 }
-

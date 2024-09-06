@@ -130,6 +130,3 @@ Physical Curve(6) = {9,10,11,12};//"Cylinder3"
 Mesh.CharacteristicLengthMin = 0.4;
 Mesh.CharacteristicLengthMax = 0.7;
 
-// Generate the 2D mesh
-Mesh 2;
-Save "pinball.msh";
