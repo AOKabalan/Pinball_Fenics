@@ -1,7 +1,7 @@
 import numpy as np
 
 # Load the .npz file
-file_path = 'results_bdf3_pinballdrag_lift_results.npz'
+file_path = 'results_bdf3_pinball_steadydrag_lift_results.npz'
 data = np.load(file_path)
 
 # List the array names

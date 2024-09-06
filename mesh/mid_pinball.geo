@@ -1,5 +1,5 @@
 // Parameters
-R = 0.75; // Radius of the cylinders
+R = 0.5; // Radius of the cylinders
 L = 3.0 * R; // Side length of the equilateral triangle
 
 alfa = 1.2;
@@ -125,14 +125,16 @@ Plane Surface(8) = {8,1,2,3};
 RHO1 = 20;
 
 Transfinite Curve{14} = RHO1*1.2;
-Transfinite Curve{29,31} = RHO1*1.5;
+Transfinite Curve{29,31} = RHO1*1.7;
 Transfinite Curve{33,34} = RHO1*3;
-Transfinite Curve{27,28} = RHO1/2.2;
+Transfinite Curve{27,28} = RHO1/2;
 Transfinite Curve{1,2,3,4} = RHO1*1.5;
 Transfinite Curve{5,6,7,8} = RHO1*1.5;
 Transfinite Curve{9,10,11,12} = RHO1*1.5;
-
-
+Transfinite Curve{13} = RHO1/1.7;
+Transfinite Curve{24,23} = RHO1/2;
+Transfinite Curve{25,22} = RHO1*1.2;
+Transfinite Curve{31} = RHO1/1.5;
 //Line Loop(5) = {13, 14, 15, 18}
 
 //Line Loop
@@ -151,10 +153,12 @@ Physical Curve(6) = {9,10,11,12};//"Cylinder3"
 
 
 // Mesh settings
-Mesh.CharacteristicLengthMin = 0.3;
-Mesh.CharacteristicLengthMax = 0.4;
+Mesh.CharacteristicLengthMin = 0.2;
+Mesh.CharacteristicLengthMax = 0.8;
 
 // Generate the 2D mesh
+
+
 Mesh 2;
 Save "mid_pinball.msh";
 

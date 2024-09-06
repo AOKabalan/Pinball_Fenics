@@ -5,6 +5,10 @@ from matplotlib import colors
 import dolfin
 from dolfin import *
 
+def compute_vorticity(u):
+    return curl(u)
+
+
 def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, nu,write_velocity_func,write_pressure_func,flag_initial_u,u0_file):
     """Initialize history variables for higher-order methods like BDF2 and BDF3"""
     u, p = split(w)
@@ -34,7 +38,7 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
         solver.parameters['newton_solver']['linear_solver'] = 'mumps'
         u, p = w.split()
         if flag_initial_u:
-            w_1.vector()[:] = w_intitial.vector()
+            w_1.vector()[:] = w_initial.vector()
 
         for _ in range(2):
 
@@ -78,7 +82,7 @@ def initialize_history(method, w, W, bcs, get_variational_form, U_inlet, t, dt, 
 
     return w_1, w_2, w_3, t
 
-def solve_steady_navier_stokes(W,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initial_u,u0_file,results_dir):
+def solve_steady_navier_stokes(W,Q,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initial_u,u0_file,flag_write_checkpoint,flag_save_vorticity,results_dir):
 
     filename_velocity = f'{results_dir}/velocity_steady_navier_stokes.xdmf'
     filename_pressure = f'{results_dir}/pressure_steady_navier_stokes.xdmf'
@@ -109,6 +113,9 @@ def solve_steady_navier_stokes(W,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initial
     # Jacobian
     J = derivative(F, w, delta_up)
     u, p = w.split()
+    if flag_initial_u:
+        w.vector()[:] = w_initial.vector()
+
     snes_solver_parameters = {"nonlinear_solver": "snes",
                           "snes_solver": {"linear_solver": "mumps",
                                           "maximum_iterations": 20,
@@ -123,10 +130,17 @@ def solve_steady_navier_stokes(W,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initial
     if flag_drag_lift:
         u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1)
         save_drag_lift(c_ds,c_ls,ts,results_dir)
+ 
+    if flag_save_vorticity:
+        vortex = curl(u)
+        vor = Function(Q)
+        vor = project(vortex,Q)
+        vorticity_file = XDMFFile("vorticity.xdmf")
+        vorticity_file.write(vor)
+        vorticity_file.close()
 
 
-
-def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, theta=0.5, ds_circle=None, n1=None, U_inlet=None, write_velocity=True, write_pressure=False, flag_drag_lift=False, flag_initial_u= False,u0_file="results/velocity.xdmf",results_dir="results/"):
+def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, theta=0.5, ds_circle=None, n1=None, U_inlet=None, write_velocity=True, write_pressure=False, flag_drag_lift=False, flag_initial_u= False,u0_file="results/velocity.xdmf",flag_write_checkpoint=False,flag_save_vorticity=False,results_dir="results/"):
     """Solve unsteady Navier-Stokes and write results to file"""
 
     # Current and old solution
@@ -233,9 +247,11 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
         
 
         print(f"Time step {t} completed")
-    f_velocity_checkpoint.write_checkpoint(u, "u_out", 0, XDMFFile.Encoding.HDF5, False)
-    save_drag_lift( c_ds, c_ls, ts,results_dir)
     
+    save_drag_lift( c_ds, c_ls, ts,results_dir)
+    if flag_write_checkpoint:
+        f_velocity_checkpoint.write_checkpoint(u, "u_out", 0, XDMFFile.Encoding.HDF5, False)
+
     if write_velocity:
         f_velocity.close()
     
@@ -294,11 +310,12 @@ def initialize_drag_lift(w, nu, ds_circle,n1,t = 0):
     u,p = w.split()
     
     u_t = inner(as_vector((n1[1], -n1[0])), u)
-    drag = assemble(2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
-    lift = assemble(-2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
+    # drag = assemble(2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
+    # lift = assemble(-2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
    # p_diffs = [p(0.15,0.2)-p(0.25,0.2)]
     #p_diffs = [p(Point(0.15, 0.2)) - p(Point(0.25, 0.2))]
-    
+    drag = assemble(2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
+    lift = assemble(-2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
     c_ds = [drag]
     c_ls = [lift]
     ts = [t]

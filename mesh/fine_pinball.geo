@@ -158,3 +158,7 @@ Mesh.CharacteristicLengthMax = 0.4;
 Mesh 2;
 Save "fine_pinball.msh";
 
+//+
+Show "*";
+//+
+Show "*";
