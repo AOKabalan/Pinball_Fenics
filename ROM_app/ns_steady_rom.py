@@ -2,7 +2,8 @@
 from dolfin import *
 from rbnics import *
 from rbnics.backends.online import OnlineFunction
-from rbnics.backends import assign
+from rbnics.backends import assign, export, import_
+
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import *
@@ -25,6 +26,20 @@ boundaries = cpp.mesh.MeshFunctionSizet(mesh, mvc)
 flag_initial_u = 'True'
 u0_file= "velocity_checkpoint.xdmf"
 
+
+# Prepare surface measure on the three cylinders used for drag and lift
+ds_circle_4 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=4)
+ds_circle_5 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=5)
+ds_circle_6 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=6)
+
+ds_circle = ds_circle_4 + ds_circle_5 + ds_circle_6
+
+#ds_circle = Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=4,5,6)
+
+n1 = -FacetNormal(mesh) #Normal pointing out of obstacle
+
+
+
 @ExactParametrizedFunctions()
 class Pinball(NavierStokesProblem):
 
@@ -32,12 +47,13 @@ class Pinball(NavierStokesProblem):
     def __init__(self, V, **kwargs):
         # Call the standard initialization
         NavierStokesProblem.__init__(self, V, **kwargs)
+        
         # ... and also store FEniCS data structures for assembly
         assert "subdomains" in kwargs
         assert "boundaries" in kwargs
        
         self.subdomains, self.boundaries = kwargs["subdomains"], kwargs["boundaries"]
-        self.u_initial= kwargs["u_initial"]
+        #self.u_initial= kwargs["u_initial"]
         dup = TrialFunction(V)
         (self.du, self.dp) = split(dup)
         (self.u, _) = split(self._solution)
@@ -50,9 +66,9 @@ class Pinball(NavierStokesProblem):
         self.g = Constant(0.0)
         self._solution_prev = Function(V)
         
-        w_initial = Function(V)
-        assign(w_initial.sub(0), self.u_initial)
-        self._solution.vector()[:] = w_initial.vector()
+        # w_initial = Function(V)
+        # assign(w_initial.sub(0), self.u_initial)
+        # self._solution_prev.vector()[:] = w_initial.vector()
     
         # Customize nonlinear solver parameters
         self._nonlinear_solver_parameters.update({
@@ -60,7 +76,26 @@ class Pinball(NavierStokesProblem):
             "maximum_iterations": 20,
             "report": True
         })
+        self._solution_prev = self._compute_initial_state()
 
+    def _compute_initial_state(self):
+        
+        element_u = VectorElement("Lagrange", mesh.ufl_cell(), 2)
+        element_p = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+        element = MixedElement(element_u, element_p)
+        V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
+        w_initial = Function(V)
+        u0_file= "velocity_checkpoint.xdmf"
+        xdmf_file = XDMFFile(u0_file)
+        
+        u_initial = Function(FunctionSpace(mesh,element_u))
+        xdmf_file.read_checkpoint(u_initial, "u_out", 0)
+
+        #import_(w_initial, ".", "velocity_checkpoint",suffix=0, component=None)
+        assign(w_initial.sub(0), u_initial)
+
+        
+        return w_initial
     # Return custom problem name
     def name(self):
         return "FluidicPinball"
@@ -146,7 +181,8 @@ class Pinball(NavierStokesProblem):
 
     # Simple continuation method to reconstruct a branch of the bifurcation diagram
     def _solve(self, **kwargs):
-        
+        self._solution_prev = self._compute_initial_state()
+
         assign(self._solution, self._solution_prev)
         
         NavierStokesProblem._solve(self, **kwargs)
@@ -177,9 +213,17 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
             self.flag = True
     return ReducedNavierStokes
 
-# mesh = Mesh("data2/mesh.xdmf")
-# subdomains = MeshFunction("size_t", mesh, "data/channel_physical_region.xml")
-# boundaries = MeshFunction("size_t", mesh, "data/channel_facet_region.xml")
+
+
+def calculate_lift(w,nu,n1,ds_circle):
+       
+    u,p = w.split()
+    
+    u_t = inner(as_vector((n1[1], -n1[0])), u)
+
+    lift = assemble(-2/(3*1.)*(Constant(nu)*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
+
+    return lift
 
 
 element_u = VectorElement("Lagrange", mesh.ufl_cell(), 2)
@@ -187,41 +231,76 @@ element_p = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
 element = MixedElement(element_u, element_p)
 V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
 
-if flag_initial_u:
-    xdmf_file = XDMFFile(u0_file)
 
-    u_initial = Function(FunctionSpace(mesh,element_u))
-    xdmf_file.read_checkpoint(u_initial, "u_out", 0)
+problem = Pinball(V, subdomains=subdomains, boundaries=boundaries)
 
-
-problem = Pinball(V, subdomains=subdomains, boundaries=boundaries,u_initial= u_initial)
-
-mu_range = [(0.15, 0.0125)]
+mu_range = [(0.03, 0.015)]
 problem.set_mu_range(mu_range)
 
 reduction_method = PODGalerkin(problem)
 reduction_method.set_Nmax(20)
 reduction_method.set_tolerance(1e-8)
 
-
-lifting_mu = (0.0125,)
+# hf_output = list()
+lifting_mu = (0.0375,)
 problem.set_mu(lifting_mu)
-solution = problem.solve()
-problem.export_solution("FluidicPinball", "test_sol")
-# reduction_method.initialize_training_set(51, sampling=EquispacedDistribution())
-# reduced_problem = reduction_method.offline()
 
 
-# online_mu = (0.0125, )
+reduction_method.initialize_training_set(51, sampling=EquispacedDistribution())
+reduced_problem = reduction_method.offline()
+
+
+reduction_method.initialize_testing_set(51, sampling=EquispacedDistribution())
+N_max = min(reduced_problem.N.values())
+
+#error_analysis_pinball(reduction_method, N_max, filename="error_analysis")
+speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis")
+
+# online_mu = (0.075, )
 # reduced_problem.set_mu(online_mu)
 # reduced_solution = reduced_problem.solve()
+flag_bifurcation = False
+if flag_bifurcation:
+
+    # Quantities for the bifurcation analysis
+    mu_start_bif = 0.03
+    mu_end_bif = 0.017
+    mu_num_bif = 100
+    mu_range_bif, mu_step_bif = np.linspace(mu_start_bif, mu_end_bif, mu_num_bif, retstep=True)
+
+    # Quantities for the bifurcation diagram
+    hf_output = list()
+    rb_output = list()
 
 
-# # reduction_method.initialize_training_set(16, sampling=EquispacedDistribution())
-# # reduction_method.error_analysis()
-# plt.figure()
+    for (i,mu) in enumerate(mu_range_bif):
+ 
+        online_mu = (mu,)
+        problem.set_mu(online_mu)
+        solution = problem.solve()
+        problem.export_solution("FluidicPinball", "online_solution_hf", suffix=i)
+
+        hf_output.append(calculate_lift(solution,mu,n1,ds_circle))
+
+        reduced_problem.set_mu(online_mu)
+        reduced_solution = reduced_problem.solve()
+        Z = reduced_problem.basis_functions*reduced_solution
+        reduced_problem.export_solution("FluidicPinball", "online_solution_ro", suffix=i)
+
+        rb_output.append(calculate_lift(Z,mu,n1,ds_circle))
 
 
-# plot(reduced_solution, reduced_problem=reduced_problem, component="u")    
+    plt.figure("Bifurcation analysis")
+    plt.plot(mu_range_bif, hf_output, "-r", linewidth=2, label = "HF output")
+    plt.plot(mu_range_bif, rb_output, "--b", linewidth=2, label = "RB output")
+    plt.xlabel('$\\mu$')
+    plt.ylabel('$C_L$')
+    plt.title("Bifurcation Diagram")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
-# plt.show()
+
+
+
+
