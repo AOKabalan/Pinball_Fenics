@@ -221,7 +221,7 @@ def calculate_lift(w,nu,n1,ds_circle):
     
     u_t = inner(as_vector((n1[1], -n1[0])), u)
 
-    lift = assemble(-2/(3*1.)*(Constant(nu)*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
+    lift = assemble(-2/(1.)*(Constant(nu)*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
 
     return lift
 
@@ -234,7 +234,7 @@ V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
 
 problem = Pinball(V, subdomains=subdomains, boundaries=boundaries)
 
-mu_range = [(0.03, 0.015)]
+mu_range = [(0.017, 0.01)]
 problem.set_mu_range(mu_range)
 
 reduction_method = PODGalerkin(problem)
@@ -242,64 +242,69 @@ reduction_method.set_Nmax(20)
 reduction_method.set_tolerance(1e-8)
 
 # hf_output = list()
-lifting_mu = (0.0375,)
+lifting_mu = (0.02,)
 problem.set_mu(lifting_mu)
 
 
-reduction_method.initialize_training_set(51, sampling=EquispacedDistribution())
+reduction_method.initialize_training_set(71, sampling=EquispacedDistribution())
 reduced_problem = reduction_method.offline()
 
 
-reduction_method.initialize_testing_set(51, sampling=EquispacedDistribution())
-N_max = min(reduced_problem.N.values())
+# reduction_method.initialize_testing_set(51, sampling=EquispacedDistribution())
+# N_max = min(reduced_problem.N.values())
 
 #error_analysis_pinball(reduction_method, N_max, filename="error_analysis")
-speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis")
-
-# online_mu = (0.075, )
+#speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis")
+# mu_on = 0.013
+# online_mu = (mu_on, )
 # reduced_problem.set_mu(online_mu)
 # reduced_solution = reduced_problem.solve()
-flag_bifurcation = False
-if flag_bifurcation:
+# reduced_problem.export_solution("FluidicPinball", "test_sol")
+# Z = reduced_problem.basis_functions * reduced_solution
+# print((calculate_lift(Z, mu_on, n1, ds_circle)))
 
+flag_bifurcation = True
+if flag_bifurcation:
     # Quantities for the bifurcation analysis
-    mu_start_bif = 0.03
-    mu_end_bif = 0.017
-    mu_num_bif = 100
-    mu_range_bif, mu_step_bif = np.linspace(mu_start_bif, mu_end_bif, mu_num_bif, retstep=True)
+    Re_start_bif = 55  # Corresponds to mu_start_bif = 0.03
+    Re_end_bif = 85   # Corresponds to mu_end_bif = 0.017
+    Re_num_bif = 100
+    Re_range_bif = np.linspace(Re_start_bif, Re_end_bif, Re_num_bif)
+    mu_range_bif = 1 / Re_range_bif  # Calculate mu from Re
 
     # Quantities for the bifurcation diagram
-    hf_output = list()
-    rb_output = list()
+    hf_output = []
+    rb_output = []
 
-
-    for (i,mu) in enumerate(mu_range_bif):
- 
+    for (i, Re) in enumerate(Re_range_bif):
+        mu = 1 / Re
         online_mu = (mu,)
         problem.set_mu(online_mu)
         solution = problem.solve()
         problem.export_solution("FluidicPinball", "online_solution_hf", suffix=i)
-
-        hf_output.append(calculate_lift(solution,mu,n1,ds_circle))
+        hf_output.append(calculate_lift(solution, mu, n1, ds_circle))
 
         reduced_problem.set_mu(online_mu)
         reduced_solution = reduced_problem.solve()
-        Z = reduced_problem.basis_functions*reduced_solution
+        Z = reduced_problem.basis_functions * reduced_solution
         reduced_problem.export_solution("FluidicPinball", "online_solution_ro", suffix=i)
+        rb_output.append(calculate_lift(Z, mu, n1, ds_circle))
 
-        rb_output.append(calculate_lift(Z,mu,n1,ds_circle))
-
+        # Save data to file
+    data_to_save = np.column_stack((Re_range_bif, hf_output, rb_output))
+    np.savetxt('bifurcation_data.csv', data_to_save, delimiter=',', 
+               header='Re,HF_output,RB_output', comments='')
+    print("Data saved to bifurcation_data.csv")
 
     plt.figure("Bifurcation analysis")
-    plt.plot(mu_range_bif, hf_output, "-r", linewidth=2, label = "HF output")
-    plt.plot(mu_range_bif, rb_output, "--b", linewidth=2, label = "RB output")
-    plt.xlabel('$\\mu$')
+    plt.plot(Re_range_bif, hf_output, "-r", linewidth=2, label="HF output")
+    plt.plot(Re_range_bif, rb_output, "--b", linewidth=2, label="RB output")
+    plt.xlabel('Re')
     plt.ylabel('$C_L$')
     plt.title("Bifurcation Diagram")
     plt.legend()
     plt.grid(True)
     plt.show()
-
 
 
 
