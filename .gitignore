@@ -1,3 +1,4 @@
 *.pdf
 papers/
 results/
+*.csv
