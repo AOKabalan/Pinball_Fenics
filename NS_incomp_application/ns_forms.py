@@ -93,7 +93,7 @@ def solve_steady_navier_stokes(W,Q,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initi
     w = Function(W)
     u, p = split(w)
     f = Constant((0., 0.))
-    filename_velocity_checkpoint = f'velocity_checkpoint.xdmf'
+    filename_velocity_checkpoint = f'{results_dir}/velocity_checkpoint.xdmf'
     f_velocity_checkpoint = XDMFFile(filename_velocity_checkpoint)
    
     if flag_initial_u:
@@ -130,7 +130,10 @@ def solve_steady_navier_stokes(W,Q,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initi
     if flag_drag_lift:
         u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1)
         save_drag_lift(c_ds,c_ls,ts,results_dir)
- 
+        
+    if flag_write_checkpoint:
+        f_velocity_checkpoint.write_checkpoint(u, "u_out", 0, XDMFFile.Encoding.HDF5, False)
+
     if flag_save_vorticity:
         vortex = curl(u)
         vor = Function(Q)
@@ -148,7 +151,7 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
     u, p = split(w)
 
 
-    filename_velocity_checkpoint = f'velocity_checkpoint.xdmf'
+    filename_velocity_checkpoint = f'{results_dir}/velocity_checkpoint.xdmf'
     f_velocity_checkpoint = XDMFFile(filename_velocity_checkpoint)
    
 
@@ -177,7 +180,7 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
 
     # Define noop function for drag and lift
     def noop_drag_lift(*args):
-        return [], [], [], []
+        return [], [], []
 
 
     if flag_drag_lift:
