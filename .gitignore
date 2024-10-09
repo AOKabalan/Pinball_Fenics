@@ -2,3 +2,5 @@
 papers/
 results/
 *.csv
+*.png
+*.txt

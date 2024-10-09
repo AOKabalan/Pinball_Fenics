@@ -38,9 +38,8 @@ ds_circle = ds_circle_4 + ds_circle_5 + ds_circle_6
 
 n1 = -FacetNormal(mesh) #Normal pointing out of obstacle
 
-
-
-@ExactParametrizedFunctions()
+@DEIM("online")
+@ExactParametrizedFunctions("offline")
 class Pinball(NavierStokesProblem):
 
     # Default initialization of members
@@ -76,7 +75,7 @@ class Pinball(NavierStokesProblem):
             "maximum_iterations": 20,
             "report": True
         })
-        self._solution_prev = self._compute_initial_state()
+        
 
     def _compute_initial_state(self):
         
@@ -98,7 +97,7 @@ class Pinball(NavierStokesProblem):
         return w_initial
     # Return custom problem name
     def name(self):
-        return "FluidicPinball"
+        return "FluidicPinballDEIM"
 
     # Return theta multiplicative terms of the affine expansion of the problem.
     @compute_theta_for_derivatives
@@ -233,35 +232,31 @@ V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
 
 
 problem = Pinball(V, subdomains=subdomains, boundaries=boundaries)
-
 mu_range = [(0.017, 0.01)]
 problem.set_mu_range(mu_range)
 
 reduction_method = PODGalerkin(problem)
-reduction_method.set_Nmax(20)
-reduction_method.set_tolerance(1e-8)
-
+reduction_method.set_Nmax(20, DEIM=20)
+reduction_method.set_tolerance(1e-8, DEIM=1e-8)
 # hf_output = list()
-lifting_mu = (0.02,)
+
+lifting_mu = (0.017,)
 problem.set_mu(lifting_mu)
-
-
-reduction_method.initialize_training_set(71, sampling=EquispacedDistribution())
+reduction_method.initialize_training_set(100, DEIM=144, sampling=EquispacedDistribution())
 reduced_problem = reduction_method.offline()
 
 
-reduction_method.initialize_testing_set(51, sampling=EquispacedDistribution())
-N_max = min(reduced_problem.N.values())
+# reduction_method.initialize_testing_set(51, sampling=EquispacedDistribution())
+# N_max = min(reduced_problem.N.values())
 
 #error_analysis_pinball(reduction_method, N_max, filename="error_analysis")
-speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis2")
+#speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis2")
 
 
-# mu_on = 0.013
-# online_mu = (mu_on, )
-# reduced_problem.set_mu(online_mu)
-# reduced_solution = reduced_problem.solve()
-# reduced_problem.export_solution("FluidicPinball", "test_sol")
+online_mu = (0.012,)
+reduced_problem.set_mu(online_mu)
+reduced_solution = reduced_problem.solve()
+reduced_problem.export_solution("FluidicPinballDEIM", "test_sol4")
 # Z = reduced_problem.basis_functions * reduced_solution
 # print((calculate_lift(Z, mu_on, n1, ds_circle)))
 
