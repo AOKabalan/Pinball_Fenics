@@ -138,7 +138,7 @@ def solve_steady_navier_stokes(W,Q,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initi
         vortex = curl(u)
         vor = Function(Q)
         vor = project(vortex,Q)
-        vorticity_file = XDMFFile("vorticity.xdmf")
+        vorticity_file = XDMFFile(f"{results_dir}/vorticity.xdmf")
         vorticity_file.write(vor)
         vorticity_file.close()
 
@@ -340,7 +340,7 @@ def calculate_drag_lift(nu,u_t,p,n1,ds_circle,ts,c_ds, c_ls,t=0):
     return c_ds, c_ls, ts
 
 def save_drag_lift(c_ds,c_ls,ts, results_dir="results/"):
-    np.savez(results_dir+"drag_lift_results",
+    np.savez(f"{results_dir}/drag_lift_results",
         CD=np.array(c_ds), CL=np.array(c_ls),
         t=ts)
 
