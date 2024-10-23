@@ -196,16 +196,29 @@ def main():
         solve_steady_navier_stokes(**solver_params)
     else:
         unsteady_params = {
-            **solver_params,
+            'W': W,
+            'nu': config['nu'],
+            'bcs': bcs,
             'T': config['final_time'],
             'dt': config['time_step'],
             'time_integration_method': config['time_integration'],
             'theta': 0.5,
+            'ds_circle': ds_circle,
+            'n1': n1,
             'U_inlet': U_inlet,
             'write_velocity': config.get('write_velocity', True),
-            'write_pressure': config.get('write_pressure', False)
+            'write_pressure': config.get('write_pressure', False),
+            'flag_drag_lift': config.get('flag_drag_lift', False),
+            'flag_initial_u': config.get('flag_initial_u', False),
+            'u0_file': config.get('u0_file', "results/velocity.xdmf"),
+            'flag_write_checkpoint': config.get('flag_write_checkpoint', False),
+            'flag_save_vorticity': config.get('flag_save_vorticity', False),
+            'results_dir': results_dir
         }
         solve_unsteady_navier_stokes(**unsteady_params)
 
 if __name__ == "__main__":
     main()
+
+
+  
