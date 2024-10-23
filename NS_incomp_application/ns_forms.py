@@ -93,7 +93,7 @@ def solve_steady_navier_stokes(W,Q,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initi
     w = Function(W)
     u, p = split(w)
     f = Constant((0., 0.))
-    filename_velocity_checkpoint = f'{results_dir}/velocity_checkpoint.xdmf'
+    filename_velocity_checkpoint = f'{results_dir}/velocity_checkpoint_asymmetric.xdmf'
     f_velocity_checkpoint = XDMFFile(filename_velocity_checkpoint)
    
     if flag_initial_u:
