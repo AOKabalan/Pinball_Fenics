@@ -63,9 +63,6 @@ u_swapped = Function(V)
 assigner = FunctionAssigner(V, [P, P])
 assigner.assign(u_swapped, [u_x_swapped, u_y_swapped])
 
-# Verify the results for both components
-n_components = mesh.geometry().dim()
-dof_range = len(u_swapped.vector()) // n_components
 
 # Save the swapped field as XDMF
 filename_swapped = 'velocity_swapped.xdmf'
