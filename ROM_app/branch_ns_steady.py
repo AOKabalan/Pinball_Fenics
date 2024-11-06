@@ -24,8 +24,8 @@ with XDMFFile(mesh_function_file) as infile:
 boundaries = cpp.mesh.MeshFunctionSizet(mesh, mvc)
 
 flag_initial_u = 'True'
-u0_file= "velocity_checkpoint.xdmf"
-
+u0_file = "velocity_checkpoint.xdmf"
+u1_file = "velocity_checkpoint_asymmetric.xdmf"
 
 # Prepare surface measure on the three cylinders used for drag and lift
 ds_circle_4 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=4)
@@ -98,7 +98,7 @@ class Pinball(NavierStokesProblem):
         return w_initial
     # Return custom problem name
     def name(self):
-        return "FluidicPinball"
+        return "FluidicPinball2"
 
     # Return theta multiplicative terms of the affine expansion of the problem.
     @compute_theta_for_derivatives
@@ -188,9 +188,6 @@ class Pinball(NavierStokesProblem):
         NavierStokesProblem._solve(self, **kwargs)
         assign(self._solution_prev, self._solution)
 
-
-
-# Customize the resulting reduced problem to enable simple continuation at reduced level
 @CustomizeReducedProblemFor(NavierStokesProblem)
 def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
     class ReducedNavierStokes(ReducedNavierStokes_Base):
@@ -203,18 +200,62 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
                 "maximum_iterations": 20
             })
             self.flag = False
-   
+            
+
+        def _compute_initial_state(self):
+            element_u = VectorElement("Lagrange", mesh.ufl_cell(), 2)
+            element_p = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+            element = MixedElement(element_u, element_p)
+            V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
+            w_initial = Function(V)
+            u1_file = "velocity_checkpoint.xdmf"
+            xdmf_file = XDMFFile(u1_file)
+            u_initial = Function(FunctionSpace(mesh, element_u))
+            xdmf_file.read_checkpoint(u_initial, "u_out", 0)
+            assign(w_initial.sub(0), u_initial)
+            return w_initial
+
+        def _project_initial_state(self, initial_state, N):
+            # Project the initial state to reduced space
+            print('Reached here !!')
+            projected_state = self.project(initial_state,N)
+            print('Reached here 2!!')
+            return projected_state
+        # def _project_initial_state(self, initial_state, N):
+        #     #Project the initial state to reduced space
+        #     projected_state = OnlineFunction(N)  # Create correct type
+        #     temp_proj = self.project(initial_state, N)
+        #     assign(projected_state, temp_proj)
+        #     return projected_state
+
 
         def _solve(self, N, **kwargs):
+           
             if self.flag:
                 assign(self._solution, self._solution_prev)
+            else:  
+                try:
+                    print(f"We're here")
+                    # Get initial state and project it
+                    initial_state = self._compute_initial_state()
+                    
+                    self._solution = self._project_initial_state(initial_state, N)
+                    
+                    print("Initial state calculated and projected successfully")
+
+                except Exception as e:
+                    print(f"Error: {str(e)}")
+                    self._solution = None
+            print(f"We're here1")
             ReducedNavierStokes_Base._solve(self, N, **kwargs)
             self._solution_prev = OnlineFunction(N)
+            print(f"We're here2")
             assign(self._solution_prev, self._solution)
             self.flag = True
+
+            
+            
     return ReducedNavierStokes
-
-
 
 def calculate_lift(w,nu,n1,ds_circle):
        
@@ -239,8 +280,8 @@ mu_range = [(0.017, 0.01)]
 problem.set_mu_range(mu_range)
 
 reduction_method = PODGalerkin(problem)
-reduction_method.set_Nmax(20)
-reduction_method.set_tolerance(1e-12)
+reduction_method.set_Nmax(12)
+reduction_method.set_tolerance(1e-16)
 
 # hf_output = list()
 lifting_mu = (0.017,)
@@ -250,22 +291,18 @@ problem.set_mu(lifting_mu)
 reduction_method.initialize_training_set(40, sampling=EquispacedDistribution())
 reduced_problem = reduction_method.offline()
 
-
 reduction_method.initialize_testing_set(50, sampling=EquispacedDistribution())
 N_max = min(reduced_problem.N.values())
 
-error_analysis_pinball(reduction_method, 10, filename="error_analysis")
+# error_analysis_pinball(reduction_method, 10, filename="error_analysis2")
 # speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis2")
-
-# mu_on = 0.011
-# online_mu = (mu_on,)
-# reduced_problem.set_mu(online_mu)
-# reduced_solution = reduced_problem.solve()
-# reduced_problem.export_solution("FluidicPinball", "test_sol2")
-# Z = reduced_problem.basis_functions * reduced_solution
+online_mu = (0.011,)
+reduced_problem.set_mu(online_mu)
+reduced_solution = reduced_problem.solve(N_max)
+reduced_problem.export_solution("FluidicPinball2", "test_sol55")
+Z = reduced_problem.basis_functions * reduced_solution
 
 
-# print(reduced_solution)
 # print((calculate_lift(Z, mu_on, n1, ds_circle)))
 
 

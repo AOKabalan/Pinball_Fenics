@@ -1,6 +1,9 @@
-*.pdf
+**/*.pdf
 papers/
 results/
 *.csv
-*.png
+**/*.png 
 *.txt
+ROM_app/**/
+!ROM_app/data2/
+!ROM_app/utils/

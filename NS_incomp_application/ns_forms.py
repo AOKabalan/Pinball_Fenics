@@ -127,10 +127,11 @@ def solve_steady_navier_stokes(W,Q,nu,bcs,ds_circle,n1,flag_drag_lift,flag_initi
     solver.solve()
     f_velocity.write(u)
     f_pressure.write(p)
+
     if flag_drag_lift:
-        u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1)
-        save_drag_lift(c_ds,c_ls,ts,results_dir)
-        
+        u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1, n_steps=1)
+        save_drag_lift(c_ds, c_ls, ts, results_dir)
+    
     if flag_write_checkpoint:
         f_velocity_checkpoint.write_checkpoint(u, "u_out", 0, XDMFFile.Encoding.HDF5, False)
 
@@ -184,15 +185,19 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
 
 
     if flag_drag_lift:
-        u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1, t)
-
-        calculate_drag_lift_func = lambda: calculate_drag_lift(nu, u_t, p, n1, ds_circle, ts, c_ds, c_ls, t)
-        save_drag_lift_func = lambda: save_drag_lift( c_ds, c_ls, ts, results_dir)
+        # Calculate number of time steps
+        n_steps = int(T/dt) + 1
+        # Initialize arrays with correct size
+        u_t, c_ds, c_ls, ts = initialize_drag_lift(w, nu, ds_circle, n1, t, n_steps)
+        
+        # Keep track of current step
+        current_step = 1
+        calculate_drag_lift_func = lambda: calculate_drag_lift(
+            nu, u_t, p, n1, ds_circle, ts, c_ds, c_ls, t, current_step)
+        save_drag_lift_func = lambda: save_drag_lift(c_ds, c_ls, ts, results_dir)
     else:
         calculate_drag_lift_func = noop_drag_lift
         save_drag_lift_func = write_nothing
-
-
 
     # Define variational forms
     v, q = TestFunctions(W)
@@ -243,6 +248,8 @@ def solve_unsteady_navier_stokes(W, nu, bcs, T, dt, time_integration_method, the
             w_1.assign(w)
                                             
         c_ds, c_ls,  ts = calculate_drag_lift_func()
+        current_step += 1
+
         write_velocity_func(u, t)
         write_pressure_func(p, t)
 
@@ -306,43 +313,49 @@ def get_variational_form(method, u, u_1, p, v, q, dt, nu,p_1, u_2=0, u_3=0):
 
 
 
-  
-def initialize_drag_lift(w, nu, ds_circle,n1,t = 0):
-        # Compute reference quantities
-   
-    u,p = w.split()
+def initialize_drag_lift(w, nu, ds_circle, n1, t=0, n_steps=1):
+    """Initialize drag and lift calculations with pre-allocated arrays
     
+    Parameters:
+        w: Function
+        nu: float
+        ds_circle: Measure
+        n1: Vector
+        t: float, initial time
+        n_steps: int, number of time steps (default=1 for steady case)
+    """
+    u, p = w.split()
     u_t = inner(as_vector((n1[1], -n1[0])), u)
-    # drag = assemble(2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
-    # lift = assemble(-2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
-   # p_diffs = [p(0.15,0.2)-p(0.25,0.2)]
-    #p_diffs = [p(Point(0.15, 0.2)) - p(Point(0.25, 0.2))]
-    drag = assemble(2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
-    lift = assemble(-2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
-    c_ds = [drag]
-    c_ls = [lift]
-    ts = [t]
-    return u_t, c_ds, c_ls, ts,
+    
+    # Pre-allocate arrays
+    c_ds = np.zeros(n_steps)
+    c_ls = np.zeros(n_steps)
+    ts = np.zeros(n_steps)
+    
+    # Calculate initial values
+    c_ds[0] = assemble(2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
+    c_ls[0] = assemble(-2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
+    ts[0] = t
+    
+    return u_t, c_ds, c_ls, ts
 
-def calculate_drag_lift(nu,u_t,p,n1,ds_circle,ts,c_ds, c_ls,t=0):
 
-    c_ds.append(assemble(
-        2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle))
-    c_ls.append(assemble(
-        -2/(6*pi*0.75)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle))
-
- 
-    #p_diffs.append(p(0.15,0.2)-p(0.25,0.2))
-   
-
-    ts.append(t)
+def calculate_drag_lift(nu, u_t, p, n1, ds_circle, ts, c_ds, c_ls, t=0, step_idx=1):
+    """Calculate drag and lift coefficients and store at the specified index
+    
+    Parameters:
+        step_idx: int, current time step index in the arrays
+    """
+    c_ds[step_idx] = assemble(2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[1] - p*n1[0])*ds_circle)
+    c_ls[step_idx] = assemble(-2/(3*1.5)*(nu*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
+    ts[step_idx] = t
     
     return c_ds, c_ls, ts
 
-def save_drag_lift(c_ds,c_ls,ts, results_dir="results/"):
+
+
+def save_drag_lift(c_ds, c_ls, ts, results_dir="results/"):
+    """Save the pre-allocated arrays to file"""
     np.savez(f"{results_dir}/drag_lift_results",
-        CD=np.array(c_ds), CL=np.array(c_ls),
+        CD=c_ds, CL=c_ls,
         t=ts)
-
-
-

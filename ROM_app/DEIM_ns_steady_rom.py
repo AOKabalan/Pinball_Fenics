@@ -65,10 +65,7 @@ class Pinball(NavierStokesProblem):
         self.g = Constant(0.0)
         self._solution_prev = Function(V)
         
-        # w_initial = Function(V)
-        # assign(w_initial.sub(0), self.u_initial)
-        # self._solution_prev.vector()[:] = w_initial.vector()
-    
+ 
         # Customize nonlinear solver parameters
         self._nonlinear_solver_parameters.update({
             "linear_solver": "umfpack",
@@ -237,7 +234,7 @@ problem.set_mu_range(mu_range)
 
 reduction_method = PODGalerkin(problem)
 reduction_method.set_Nmax(20, DEIM=20)
-reduction_method.set_tolerance(1e-8, DEIM=1e-8)
+reduction_method.set_tolerance(0, DEIM=0)
 # hf_output = list()
 
 lifting_mu = (0.017,)
