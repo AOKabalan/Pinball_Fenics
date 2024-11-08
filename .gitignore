@@ -11,5 +11,5 @@ NS_ROM/**/
 !NS_ROM/utils
 !NS_ROM/data2
 NS_ROM_DEIM/**/
-!NS_ROM/utils
-!NS_ROM/data2
+!NS_ROM_DEIM/data2
+!NS_ROM_DEIM/utils
