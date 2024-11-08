@@ -4,71 +4,19 @@ from rbnics.backends.online import OnlineFunction
 from rbnics.backends import assign, export, import_
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import *
 from datetime import datetime
-import json
 import os
+from utils import *
 
-# Configuration dictionary
-config = {
-    "simulation_name": "PinballDEIM",
-    "tolerances": {
-        "rom": 1e-15,  # Reduced Order Model tolerance
-        "deim": 1e-15  # DEIM tolerance
-    },
-    "max_basis": {
-        "rom": 20,    # Maximum number of ROM basis functions
-        "deim": 50    # Maximum number of DEIM basis functions
-    },
-    "snapshots": {
-        "training": 100,  # Number of training snapshots
-        "testing": 50,   # Number of testing snapshots
-        "deim": 144,
-        "testing_DEIM": 55      # Number of DEIM snapshots
-    },
-    "mesh": {
-        "file": "data2/mesh.xdmf",
-        "function_file": "data2/mf.xdmf"
-    },
-    "initial_conditions": {
-        "velocity_file": "velocity_checkpoint.xdmf"
-    },
-    "parameters": {
-        "mu_range": [(0.017, 0.01)],
-        "lifting_mu": (0.017,),
-        "online_mu": (0.0125,)
-    },
-    "bifurcation": {
-        "enabled": False,
-        "Re_start": 55,   # Corresponds to mu_start = 0.03
-        "Re_end": 85,     # Corresponds to mu_end = 0.017
-        "Re_num": 100,    # Number of points for bifurcation analysis
-        "output_dir": "bifurcation_results"
-    }
-}
-
-def save_run_info(config, results):
-    """Save configuration and results to a timestamped file"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    os.makedirs(config["simulation_name"], exist_ok=True)
-    filename = f"{config['simulation_name']}/run_info_{timestamp}.txt"
-    
-    output_data = {
-        "configuration": config,
-        "results": results
-    }
-    
-    with open(filename, 'w') as f:
-        json.dump(output_data, f, indent=4)
-    
-    print(f"Run information saved to {filename}")
-
-def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle):
+def perform_bifurcation_analysis(problem, reduced_problem, config):
     """Perform bifurcation analysis and generate plots"""
     print("Starting bifurcation analysis...")
+    mesh_manager = MeshManager()
     
+    # Create output directory if it doesn't exist
     os.makedirs(config["bifurcation"]["output_dir"], exist_ok=True)
     
+    # Setup bifurcation analysis parameters with proper tuple format
     Re_range = np.linspace(
         config["bifurcation"]["Re_start"],
         config["bifurcation"]["Re_end"],
@@ -76,15 +24,17 @@ def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle
     )
     mu_range = 1 / Re_range
     
+    # Initialize output arrays
     hf_output = []  # High-fidelity output
     rb_output = []  # Reduced basis output
     flag_bifurcation = config["bifurcation"]["enabled"]
     
+    # Perform analysis
     for i, Re in enumerate(Re_range):
         print(f"Processing Re = {Re:.2f} ({i+1}/{len(Re_range)})")
         
         mu = 1 / Re
-        online_mu = (mu,)
+        online_mu = (mu,)  # Maintain tuple format
         
         # High-fidelity solution
         problem.set_mu(online_mu)
@@ -94,7 +44,7 @@ def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle
             "online_solution_hf",
             suffix=i
         )
-        hf_output.append(calculate_lift(solution, mu, n1, ds_circle))
+        hf_output.append(calculate_lift(solution, mu, mesh_manager.n1, mesh_manager.ds_circle))
         
         # Reduced basis solution
         reduced_problem.set_mu(online_mu)
@@ -105,7 +55,7 @@ def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle
             "online_solution_ro",
             suffix=i
         )
-        rb_output.append(calculate_lift(Z, mu, n1, ds_circle))
+        rb_output.append(calculate_lift(Z, mu, mesh_manager.n1, mesh_manager.ds_circle))
     
     # Save numerical results
     results_file = os.path.join(config["bifurcation"]["output_dir"], "bifurcation_data.csv")
@@ -117,6 +67,7 @@ def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle
         header='Re,HF_output,RB_output',
         comments=''
     )
+    print(f"Numerical results saved to {results_file}")
     
     # Generate and save plot
     plt.figure("Bifurcation analysis")
@@ -128,9 +79,11 @@ def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle
     plt.legend()
     plt.grid(True)
     
+    # Save plot
     plot_file = os.path.join(config["bifurcation"]["output_dir"], "bifurcation_plot.png")
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     plt.close()
+    print(f"Bifurcation plot saved to {plot_file}")
     
     return {
         "Re_range": Re_range.tolist(),
@@ -138,36 +91,56 @@ def perform_bifurcation_analysis(problem, reduced_problem, config, n1, ds_circle
         "rb_output": rb_output
     }
 
-# Load mesh and mesh functions
-mesh = Mesh()
-mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim())
-with XDMFFile(config["mesh"]["file"]) as infile:
-    infile.read(mesh)
-    infile.read(mvc, "name_to_read")
-subdomains = cpp.mesh.MeshFunctionSizet(mesh, mvc)
+class MeshManager:
+    """Singleton class to manage mesh and related functions"""
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(MeshManager, cls).__new__(cls)
+            cls._instance.mesh = None
+            cls._instance.boundaries = None
+            cls._instance.subdomains = None
+            cls._instance.ds_circle = None
+            cls._instance.n1 = None
+        return cls._instance
+    
+    def initialize_mesh(self, config):
+        """Initialize mesh and related functions"""
+        self.mesh = Mesh()
+        mvc = MeshValueCollection("size_t", self.mesh, self.mesh.topology().dim())
+        with XDMFFile(config["mesh"]["file"]) as infile:
+            infile.read(self.mesh)
+            infile.read(mvc, "name_to_read")
+        self.subdomains = cpp.mesh.MeshFunctionSizet(self.mesh, mvc)
 
-mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim()-1)
-with XDMFFile(config["mesh"]["function_file"]) as infile:
-    infile.read(mvc, "name_to_read")
-boundaries = cpp.mesh.MeshFunctionSizet(mesh, mvc)
-
-# Surface measures
-ds_circle_4 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=4)
-ds_circle_5 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=5)
-ds_circle_6 = Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=6)
-ds_circle = ds_circle_4 + ds_circle_5 + ds_circle_6
-
-n1 = -FacetNormal(mesh)
+        mvc = MeshValueCollection("size_t", self.mesh, self.mesh.topology().dim()-1)
+        with XDMFFile(config["mesh"]["function_file"]) as infile:
+            infile.read(mvc, "name_to_read")
+        self.boundaries = cpp.mesh.MeshFunctionSizet(self.mesh, mvc)
+        
+        # Surface measures
+        ds_circle_4 = Measure("ds", domain=self.mesh, subdomain_data=self.boundaries, subdomain_id=4)
+        ds_circle_5 = Measure("ds", domain=self.mesh, subdomain_data=self.boundaries, subdomain_id=5)
+        ds_circle_6 = Measure("ds", domain=self.mesh, subdomain_data=self.boundaries, subdomain_id=6)
+        self.ds_circle = ds_circle_4 + ds_circle_5 + ds_circle_6
+        
+        self.n1 = -FacetNormal(self.mesh)
+    
+    def get_function_space(self):
+        """Create and return the function space"""
+        element_u = VectorElement("Lagrange", self.mesh.ufl_cell(), 2)
+        element_p = FiniteElement("Lagrange", self.mesh.ufl_cell(), 1)
+        element = MixedElement(element_u, element_p)
+        return FunctionSpace(self.mesh, element, components=[["u", "s"], "p"])
 
 @DEIM("online")
 @ExactParametrizedFunctions("offline")
 class Pinball(NavierStokesProblem):
     def __init__(self, V, **kwargs):
+        self.config = kwargs.pop("config")
         NavierStokesProblem.__init__(self, V, **kwargs)
         
-        assert "subdomains" in kwargs
-        assert "boundaries" in kwargs
-       
         self.subdomains, self.boundaries = kwargs["subdomains"], kwargs["boundaries"]
         dup = TrialFunction(V)
         (self.du, self.dp) = split(dup)
@@ -188,38 +161,39 @@ class Pinball(NavierStokesProblem):
         })
 
     def _compute_initial_state(self):
-        element_u = VectorElement("Lagrange", mesh.ufl_cell(), 2)
-        element_p = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+        mesh_manager = MeshManager()
+        element_u = VectorElement("Lagrange", mesh_manager.mesh.ufl_cell(), 2)
+        element_p = FiniteElement("Lagrange", mesh_manager.mesh.ufl_cell(), 1)
         element = MixedElement(element_u, element_p)
-        V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
+        V = FunctionSpace(mesh_manager.mesh, element, components=[["u", "s"], "p"])
         w_initial = Function(V)
         
-        xdmf_file = XDMFFile(config["initial_conditions"]["velocity_file"])
-        u_initial = Function(FunctionSpace(mesh, element_u))
+        xdmf_file = XDMFFile(self.config["initial_conditions"]["velocity_file"])
+        u_initial = Function(FunctionSpace(mesh_manager.mesh, element_u))
         xdmf_file.read_checkpoint(u_initial, "u_out", 0)
         assign(w_initial.sub(0), u_initial)
         
         return w_initial
 
     def name(self):
-        return config["simulation_name"]
+        return self.config["simulation_name"]
 
     @compute_theta_for_derivatives
     @compute_theta_for_supremizers
     def compute_theta(self, term):
         mu = self.mu
         if term == "a":
-            return (mu[0],)
+            return (mu[0],)  # Maintain tuple format
         elif term in ("b", "bt"):
-            return (1.,)
+            return (1.,)  # Maintain tuple format
         elif term == "c":
-            return (1.,)
+            return (1.,)  # Maintain tuple format
         elif term == "f":
-            return (1.,)
+            return (1.,)  # Maintain tuple format
         elif term == "g":
-            return (1.,)
+            return (1.,)  # Maintain tuple format
         elif term == "dirichlet_bc_u":
-            return (1.,)
+            return (1.,)  # Maintain tuple format
         else:
             raise ValueError("Invalid term for compute_theta().")
 
@@ -230,40 +204,40 @@ class Pinball(NavierStokesProblem):
         if term == "a":
             u = self.du
             v = self.v
-            return (inner(grad(u), grad(v))*dx,)
+            return (inner(grad(u), grad(v))*dx,)  # Maintain tuple format
         elif term == "b":
             u = self.du
             q = self.q
-            return (- q*div(u)*dx,)
+            return (- q*div(u)*dx,)  # Maintain tuple format
         elif term == "bt":
             p = self.dp
             v = self.v
-            return (- p*div(v)*dx,)
+            return (- p*div(v)*dx,)  # Maintain tuple format
         elif term == "c":
             u = self.u
             v = self.v
-            return (inner(grad(u)*u, v)*dx,)
+            return (inner(grad(u)*u, v)*dx,)  # Maintain tuple format
         elif term == "f":
             v = self.v
-            return (inner(self.f, v)*dx,)
+            return (inner(self.f, v)*dx,)  # Maintain tuple format
         elif term == "g":
             q = self.q
-            return (self.g*q*dx,)
+            return (self.g*q*dx,)  # Maintain tuple format
         elif term == "dirichlet_bc_u":
             bc0 = [DirichletBC(self.V.sub(0), Constant((1.0, 0.0)), self.boundaries, 1),
                    DirichletBC(self.V.sub(0), Constant((1.0, 0.0)), self.boundaries, 3),
                    DirichletBC(self.V.sub(0), Constant((0.0, 0.0)), self.boundaries, 4),
                    DirichletBC(self.V.sub(0), Constant((0.0, 0.0)), self.boundaries, 5),
                    DirichletBC(self.V.sub(0), Constant((0.0, 0.0)), self.boundaries, 6)]
-            return (bc0,)
+            return (bc0,)  # Maintain tuple format
         elif term == "inner_product_u":
             u = self.du
             v = self.v
-            return (inner(grad(u), grad(v))*dx,)
+            return (inner(grad(u), grad(v))*dx,)  # Maintain tuple format
         elif term == "inner_product_p":
             p = self.dp
             q = self.q
-            return (inner(p, q)*dx,)
+            return (inner(p, q)*dx,)  # Maintain tuple format
         else:
             raise ValueError("Invalid term for assemble_operator().")
 
@@ -287,14 +261,15 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
             self.flag = False
 
         def _compute_initial_state(self):
-            element_u = VectorElement("Lagrange", mesh.ufl_cell(), 2)
-            element_p = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+            mesh_manager = MeshManager()
+            element_u = VectorElement("Lagrange", mesh_manager.mesh.ufl_cell(), 2)
+            element_p = FiniteElement("Lagrange", mesh_manager.mesh.ufl_cell(), 1)
             element = MixedElement(element_u, element_p)
-            V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
+            V = FunctionSpace(mesh_manager.mesh, element, components=[["u", "s"], "p"])
             w_initial = Function(V)
             
-            xdmf_file = XDMFFile(config["initial_conditions"]["velocity_file"])
-            u_initial = Function(FunctionSpace(mesh, element_u))
+            xdmf_file = XDMFFile(self.truth_problem.config["initial_conditions"]["velocity_file"])
+            u_initial = Function(FunctionSpace(mesh_manager.mesh, element_u))
             xdmf_file.read_checkpoint(u_initial, "u_out", 0)
             assign(w_initial.sub(0), u_initial)
             return w_initial
@@ -338,16 +313,56 @@ def calculate_lift(w, nu, n1, ds_circle):
     lift = assemble(-2/(1.)*(Constant(nu)*inner(grad(u_t), n1)*n1[0] + p*n1[1])*ds_circle)
     return lift
 
-def run_simulation(config):
-    # Setup function spaces
-    element_u = VectorElement("Lagrange", mesh.ufl_cell(), 2)
-    element_p = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-    element = MixedElement(element_u, element_p)
-    V = FunctionSpace(mesh, element, components=[["u", "s"], "p"])
+def DEIM_convergence(reduction_method, config):
+    N_DEIM_max = config["max_basis"]["deim"]
+    N_DEIM_min = 1
+    errors_u = []
+    errors_p = []
+    N_values = list(range(N_DEIM_min, N_DEIM_max))
+    components = ['u', 'p']
+    reduction_method.reduced_problem._solution_cache.clear()
+    
+    # Fix: Properly format the online_mu parameter as a tuple
+    online_mu = (1./config["parameters"]["online_Re"],)
+    reduction_method.reduced_problem.set_mu(online_mu)
 
+    for N in N_values:
+        print(f'Solving for N ={N}')
+        reduction_method.reduced_problem.solve(DEIM=N, flag_bifurcation=False)
+        error = reduction_method.reduced_problem.compute_error()
+        errors_u.append(error[components[0]])
+        errors_p.append(error[components[1]])
+
+    # Create the semi-log plot
+    plt.figure(figsize=(10, 6))
+    plt.semilogy(N_values, errors_u, 'b-o', label='DEIM Error (u)')
+    plt.semilogy(N_values, errors_p, 'r-s', label='DEIM Error (p)')
+    plt.grid(True)
+    plt.xlabel('N (DEIM basis functions)')
+    plt.ylabel('Error (log scale)')
+    plt.title('DEIM Convergence Analysis')
+    plt.legend()
+    plt.savefig(f'{config["simulation_name"]}/DEIM_convergence.png')
+    plt.close()
+    return {'u': errors_u, 'p': errors_p}
+
+def run_simulation(config):
+    """Core simulation function"""
+    # Initialize mesh manager
+    mesh_manager = MeshManager()
+    mesh_manager.initialize_mesh(config)
+    
+    # Get function space
+    V = mesh_manager.get_function_space()
+    
+    # Setup parameter ranges - maintaining specific tuple formats
+    mu_range = [(1./config["parameters"]["Re_range"][0], 1./config["parameters"]["Re_range"][1])]
+    lifting_mu = (config["parameters"]["lifting_mu"],)
+    online_mu = (1./config["parameters"]["online_Re"],)
+    
     # Initialize problem
-    problem = Pinball(V, subdomains=subdomains, boundaries=boundaries)
-    problem.set_mu_range(config["parameters"]["mu_range"])
+    problem = Pinball(V, config=config, subdomains=mesh_manager.subdomains, boundaries=mesh_manager.boundaries)
+    problem.set_mu_range(mu_range)
 
     # Setup reduction method
     reduction_method = PODGalerkin(problem)
@@ -360,8 +375,8 @@ def run_simulation(config):
         DEIM=config["tolerances"]["deim"]
     )
 
-    # Initialize training
-    problem.set_mu(config["parameters"]["lifting_mu"])
+    # Initialize training with proper lifting_mu tuple
+    problem.set_mu(lifting_mu)
     reduction_method.initialize_training_set(
         config["snapshots"]["training"],
         DEIM=config["snapshots"]["deim"],
@@ -374,102 +389,49 @@ def run_simulation(config):
         DEIM = config["snapshots"]["testing_DEIM"],
         sampling=EquispacedDistribution()
     )
+    
     # Perform offline phase
     reduced_problem = reduction_method.offline()
     flag_bifurcation = config["bifurcation"]["enabled"]
-
-    # Online solve
-    reduced_problem.set_mu(config["parameters"]["online_mu"])
+    N_max = min(reduced_problem.N.values())
+    # Online solve with proper online_mu tuple
+    reduced_problem.set_mu(online_mu)
     print(f'The bifurcation flag before solve is: {flag_bifurcation}')
     reduced_solution = reduced_problem.solve(flag_bifurcation=flag_bifurcation)
     reduced_problem.export_solution(config["simulation_name"], "online_solution")
     
     # Calculate lift
     Z = reduced_problem.basis_functions * reduced_solution
-    lift_value = calculate_lift(Z, config["parameters"]["online_mu"][0], n1, ds_circle)
+    lift_value = calculate_lift(Z, online_mu[0], mesh_manager.n1, mesh_manager.ds_circle)
     
     # Prepare results
     results = {
         "lift_coefficient": float(lift_value),
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-    print("DEIM convergence study start")
-    err = DEIM_convergence(reduction_method,config)
-    print("DEIM convergence study end")
-
-
+    if config["analysis"]["deim_convergence"]:
+        print("Starting DEIM convergence study...")
+        err = DEIM_convergence(reduction_method, config)
+        #results["speedup_analysis"] = speedup_results
 
     # Perform bifurcation analysis if enabled
     if config["bifurcation"]["enabled"]:
         bifurcation_results = perform_bifurcation_analysis(
             problem,
             reduced_problem,
-            config,
-            n1,
-            ds_circle
+            config
         )
         results["bifurcation_analysis"] = bifurcation_results
     
+    if config["analysis"]["error_analysis"]:
+        print("Starting error analysis...")
+        error_analysis_pinball(reduction_method, N_max, DEIM = 40, filename="error_analysis")
+        #results["error_analysis"] = error_results
+    
+    # Perform speedup analysis if enabled
+    if config["analysis"]["speedup_analysis"]:
+        print("Starting speedup analysis...")
+        speedup_analysis_pinball(reduction_method, N_max, DEIM = 40, filename="speedup_analysis")
+        #results["speedup_analysis"] = speedup_results
+
     return results
-
-
-
-def DEIM_convergence(self, config):
-
-    N_DEIM_max = 50
-    N_DEIM_min = 1
-    errors_u = []
-    errors_p = []
-    N_values = list(range(N_DEIM_min, N_DEIM_max))
-    components = ['u', 'p']
-    self.reduced_problem._solution_cache.clear()
-    self.reduced_problem.set_mu(config["parameters"]["online_mu"])
-
-    for N in N_values:
-        print(f'Solving for N ={N}')
-        self.reduced_problem.solve(DEIM=N, flag_bifurcation=False)
-        error = self.reduced_problem.compute_error()
-        errors_u.append(error[components[0]])
-        errors_p.append(error[components[1]])  # Fixed typo in 'errors_p'
-
-    # Create the semi-log plot
-    plt.figure(figsize=(10, 6))
-    # Plot both components with different colors and labels
-    plt.semilogy(N_values, errors_u, 'b-o', label='DEIM Error (u)')
-    plt.semilogy(N_values, errors_p, 'r-s', label='DEIM Error (p)')  # Added second component
-    plt.grid(True)
-    plt.xlabel('N (DEIM basis functions)')
-    plt.ylabel('Error (log scale)')
-    plt.title('DEIM Convergence Analysis')
-    plt.legend()
-    plt.show()
-
-    # Return both error arrays in a dictionary
-    return {'u': errors_u, 'p': errors_p}
-
-if __name__ == "__main__":
-    try:
-        # Create necessary directories
-        os.makedirs(config["simulation_name"], exist_ok=True)
-        if config["bifurcation"]["enabled"]:
-            os.makedirs(config["bifurcation"]["output_dir"], exist_ok=True)
-
-        # Run simulation and save results
-        print("Starting simulation...")
-        results = run_simulation(config)
-        save_run_info(config, results)
-        print("Simulation completed successfully!")
-        # Print summary
-        print("\nSimulation Summary:")
-        print(f"- Lift coefficient: {results['lift_coefficient']:.6f}")
-        print(f"- Results saved at: {results['timestamp']}")
-        if config["bifurcation"]["enabled"]:
-            print("- Bifurcation analysis completed and saved")
-
-    except Exception as e:
-        print(f"\nError during simulation execution:")
-        print(f"- Type: {type(e).__name__}")
-        print(f"- Message: {str(e)}")
-        raise
-
-        

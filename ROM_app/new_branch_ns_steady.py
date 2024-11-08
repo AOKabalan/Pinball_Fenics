@@ -32,7 +32,7 @@ config = {
     "parameters": {
         "mu_range": [(0.017, 0.01)],
         "lifting_mu": (0.017,),
-        "online_mu": (0.011,)
+        "online_mu": (0.014,)
     },
     "bifurcation": {
         "enabled": False,
@@ -308,7 +308,7 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
       
         def _solve(self, N, **kwargs):
             
-            
+            print(f'N is :{N}')
             flag_bifurcation = kwargs.get('flag_bifurcation')
             if self.flag:
                     assign(self._solution, self._solution_prev)
@@ -332,7 +332,7 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
                     print(f"- Error: {str(e)}")
                     self._solution = None
                     raise
-                        
+            print(f"Reduced basis vector u_rb in solve = {self._solution.vector().content}")            
             ReducedNavierStokes_Base._solve(self, N, **kwargs)
             if flag_bifurcation:
                 self._solution_prev = OnlineFunction(N)
@@ -362,7 +362,13 @@ def run_simulation(config):
 
     # Setup reduction method
     reduction_method = PODGalerkin(problem)
-    reduction_method.set_Nmax(config["max_basis"]["rom"])
+   # reduction_method.set_Nmax(config["max_basis"]["rom"])
+    
+    reduction_method.set_Nmax({
+        "u": 10,
+        "p": 10,
+        "s": 10
+    })
     reduction_method.set_tolerance(config["tolerances"]["rom"])
 
     # Initialize training
@@ -384,12 +390,14 @@ def run_simulation(config):
 
     # Online solve
     reduced_problem.set_mu(config["parameters"]["online_mu"])
-    
+    # N = {"u": 10,"p": 10,"s": 10}
     reduced_solution = reduced_problem.solve(flag_bifurcation=flag_bifurcation)
     reduced_problem.export_solution(config["simulation_name"], "online_solution44")
     
     # Calculate lift
     Z = reduced_problem.basis_functions * reduced_solution
+    print(f"Reduced basis vector u_rb = {reduced_solution.vector().content}")
+    print(reduced_problem.basis_functions._component_name_to_basis_component_length)
     lift_value = calculate_lift(Z, config["parameters"]["online_mu"][0], n1, ds_circle)
     
     # Prepare results
@@ -397,7 +405,10 @@ def run_simulation(config):
         "lift_coefficient": float(lift_value),
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-    
+    # error_analysis_pinball(reduction_method, N_max, filename="error_analysis")
+    # #
+    # speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis2")
+
     # Perform bifurcation analysis if enabled
     if config["bifurcation"]["enabled"]:
         bifurcation_results = perform_bifurcation_analysis(

@@ -294,11 +294,11 @@ reduced_problem = reduction_method.offline()
 reduction_method.initialize_testing_set(50, sampling=EquispacedDistribution())
 N_max = min(reduced_problem.N.values())
 
-# error_analysis_pinball(reduction_method, 10, filename="error_analysis2")
+error_analysis_pinball(reduction_method, 10, filename="error_analysis2")
 # speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis2")
 online_mu = (0.011,)
 reduced_problem.set_mu(online_mu)
-reduced_solution = reduced_problem.solve(N_max)
+reduced_solution = reduced_problem.solve()
 reduced_problem.export_solution("FluidicPinball2", "test_sol55")
 Z = reduced_problem.basis_functions * reduced_solution
 

@@ -7,3 +7,9 @@ results/
 ROM_app/**/
 !ROM_app/data2/
 !ROM_app/utils/
+NS_ROM/**/
+!NS_ROM/utils
+!NS_ROM/data2
+NS_ROM_DEIM/**/
+!NS_ROM/utils
+!NS_ROM/data2
