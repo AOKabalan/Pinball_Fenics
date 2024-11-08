@@ -1,0 +1,32 @@
+# base_config.yaml
+simulation_name: "PinballDEIM"
+tolerances:
+  rom: 1.e-15
+  deim: 1.e-15
+max_basis:
+  rom: 20
+  deim: 80
+snapshots:
+  training: 50
+  testing: 50
+  deim: 50
+  testing_DEIM: 50
+mesh:
+  file: "data2/mesh.xdmf"
+  function_file: "data2/mf.xdmf"
+initial_conditions:
+  velocity_file: "velocity_checkpoint.xdmf"
+parameters:
+  Re_range: [55,100]
+  lifting_mu: 0.017
+  online_Re: 75
+bifurcation:
+  enabled: false
+  Re_start: 55
+  Re_end: 85
+  Re_num: 100
+  output_dir: "bifurcation_results"
+analysis:
+  error_analysis: true    
+  speedup_analysis: true    
+  deim_convergence: true
