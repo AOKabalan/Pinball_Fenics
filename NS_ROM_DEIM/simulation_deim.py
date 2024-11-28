@@ -183,17 +183,17 @@ class Pinball(NavierStokesProblem):
     def compute_theta(self, term):
         mu = self.mu
         if term == "a":
-            return (mu[0],)  # Maintain tuple format
+            return (mu[0],)  
         elif term in ("b", "bt"):
-            return (1.,)  # Maintain tuple format
+            return (1.,)  
         elif term == "c":
-            return (1.,)  # Maintain tuple format
+            return (1.,)  
         elif term == "f":
-            return (1.,)  # Maintain tuple format
+            return (1.,)  
         elif term == "g":
-            return (1.,)  # Maintain tuple format
+            return (1.,)  
         elif term == "dirichlet_bc_u":
-            return (1.,)  # Maintain tuple format
+            return (1.,)  
         else:
             raise ValueError("Invalid term for compute_theta().")
 
@@ -204,40 +204,40 @@ class Pinball(NavierStokesProblem):
         if term == "a":
             u = self.du
             v = self.v
-            return (inner(grad(u), grad(v))*dx,)  # Maintain tuple format
+            return (inner(grad(u), grad(v))*dx,)  
         elif term == "b":
             u = self.du
             q = self.q
-            return (- q*div(u)*dx,)  # Maintain tuple format
+            return (- q*div(u)*dx,)  
         elif term == "bt":
             p = self.dp
             v = self.v
-            return (- p*div(v)*dx,)  # Maintain tuple format
+            return (- p*div(v)*dx,)  
         elif term == "c":
             u = self.u
             v = self.v
-            return (inner(grad(u)*u, v)*dx,)  # Maintain tuple format
+            return (inner(grad(u)*u, v)*dx,)  
         elif term == "f":
             v = self.v
-            return (inner(self.f, v)*dx,)  # Maintain tuple format
+            return (inner(self.f, v)*dx,)  
         elif term == "g":
             q = self.q
-            return (self.g*q*dx,)  # Maintain tuple format
+            return (self.g*q*dx,)  
         elif term == "dirichlet_bc_u":
             bc0 = [DirichletBC(self.V.sub(0), Constant((1.0, 0.0)), self.boundaries, 1),
                    DirichletBC(self.V.sub(0), Constant((1.0, 0.0)), self.boundaries, 3),
                    DirichletBC(self.V.sub(0), Constant((0.0, 0.0)), self.boundaries, 4),
                    DirichletBC(self.V.sub(0), Constant((0.0, 0.0)), self.boundaries, 5),
                    DirichletBC(self.V.sub(0), Constant((0.0, 0.0)), self.boundaries, 6)]
-            return (bc0,)  # Maintain tuple format
+            return (bc0,)  
         elif term == "inner_product_u":
             u = self.du
             v = self.v
-            return (inner(grad(u), grad(v))*dx,)  # Maintain tuple format
+            return (inner(grad(u), grad(v))*dx,)  
         elif term == "inner_product_p":
             p = self.dp
             q = self.q
-            return (inner(p, q)*dx,)  # Maintain tuple format
+            return (inner(p, q)*dx,)  
         else:
             raise ValueError("Invalid term for assemble_operator().")
 
@@ -258,6 +258,8 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
                 "line_search": "wolfe",
                 "maximum_iterations": 20
             })
+            self._projected_initial_state = None  # Cache for projected initial state
+            self._cached_N = None  # Store N for which the projection was done
             self.flag = False
 
         def _compute_initial_state(self):
@@ -274,12 +276,26 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
             assign(w_initial.sub(0), u_initial)
             return w_initial
 
+       # def _project_initial_state(self, initial_state, N):
+        #    return self.project(initial_state, min(N.values()))
         def _project_initial_state(self, initial_state, N):
-            return self.project(initial_state, min(N.values()))
-
+    # Check if we already have a projection for this N
+            if self._projected_initial_state is not None and self._cached_N == N:
+                print("Using cached projected initial state")
+                new_solution = OnlineFunction(N)
+                assign(new_solution, self._projected_initial_state)
+                return new_solution
+    
+            print("Computing new projected initial state")
+            projected = self.project(initial_state, min(N.values()))
+            self._projected_initial_state = OnlineFunction(N)
+            assign(self._projected_initial_state, projected)
+            self._cached_N = N
+            return projected
+        
         def _solve(self, N, **kwargs):
             flag_bifurcation = kwargs.get('flag_bifurcation')
-            
+            timer = kwargs.pop('timer',None) 
             if self.flag:
                 assign(self._solution, self._solution_prev)
             
@@ -287,10 +303,10 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
                 try:
                     initial_state = self._compute_initial_state()
                     print("Initial state computed successfully")
-                    
+                  
                     self._solution = self._project_initial_state(initial_state, N)
                     print("Initial state projected successfully")
-                    
+                   
                 except Exception as e:
                     print(f"Error in solve:")
                     print(f"- Stage: {'project' if 'initial_state' in locals() else 'compute initial'}")
@@ -314,7 +330,11 @@ def calculate_lift(w, nu, n1, ds_circle):
     return lift
 
 def DEIM_convergence(reduction_method, config):
-    N_DEIM_max = config["max_basis"]["deim"]
+    N_DEIM_c = reduction_method.reduced_problem.truth_problem.DEIM_approximations['c'][0].N
+    N_DEIM_dc = reduction_method.reduced_problem.truth_problem.DEIM_approximations['dc'][0].N
+    
+    # Use the minimum between the two terms
+    N_DEIM_max = min(N_DEIM_c, N_DEIM_dc)
     N_DEIM_min = 1
     errors_u = []
     errors_p = []
@@ -323,7 +343,7 @@ def DEIM_convergence(reduction_method, config):
     reduction_method.reduced_problem._solution_cache.clear()
     
     # Fix: Properly format the online_mu parameter as a tuple
-    online_mu = (1./config["parameters"]["online_Re"],)
+    online_mu = (0.0125,)
     reduction_method.reduced_problem.set_mu(online_mu)
 
     for N in N_values:
@@ -370,10 +390,10 @@ def run_simulation(config):
         config["max_basis"]["rom"],
         DEIM=config["max_basis"]["deim"]
     )
-    reduction_method.set_tolerance(
-        config["tolerances"]["rom"],
-        DEIM=config["tolerances"]["deim"]
-    )
+    #reduction_method.set_tolerance(
+    #    config["tolerances"]["rom"],
+    #    DEIM=config["tolerances"]["deim"]
+    #)
 
     # Initialize training with proper lifting_mu tuple
     problem.set_mu(lifting_mu)
@@ -393,7 +413,7 @@ def run_simulation(config):
     # Perform offline phase
     reduced_problem = reduction_method.offline()
     flag_bifurcation = config["bifurcation"]["enabled"]
-    N_max = min(reduced_problem.N.values())
+    N_max = 12
     # Online solve with proper online_mu tuple
     reduced_problem.set_mu(online_mu)
     print(f'The bifurcation flag before solve is: {flag_bifurcation}')
@@ -403,7 +423,13 @@ def run_simulation(config):
     # Calculate lift
     Z = reduced_problem.basis_functions * reduced_solution
     lift_value = calculate_lift(Z, online_mu[0], mesh_manager.n1, mesh_manager.ds_circle)
+    N_DEIM_c = reduction_method.reduced_problem.truth_problem.DEIM_approximations['c'][0].N
+    N_DEIM_dc = reduction_method.reduced_problem.truth_problem.DEIM_approximations['dc'][0].N
     
+    # Use the minimum between the two terms
+    N_DEIM_max = min(N_DEIM_c, N_DEIM_dc)
+
+
     # Prepare results
     results = {
         "lift_coefficient": float(lift_value),
@@ -422,16 +448,16 @@ def run_simulation(config):
             config
         )
         results["bifurcation_analysis"] = bifurcation_results
-    
+    reduction_method.error_analysis()
     if config["analysis"]["error_analysis"]:
         print("Starting error analysis...")
-        error_analysis_pinball(reduction_method, N_max, DEIM = 40, filename="error_analysis")
-        #results["error_analysis"] = error_results
+       # error_analysis_pinball(reduction_method, N_max,  filename="error_analysis")
+       # results["error_analysis"] = error_results
     
     # Perform speedup analysis if enabled
     if config["analysis"]["speedup_analysis"]:
         print("Starting speedup analysis...")
-        speedup_analysis_pinball(reduction_method, N_max, DEIM = 40, filename="speedup_analysis")
+        speedup_analysis_pinball(reduction_method, N_max, filename="speedup_analysis")
         #results["speedup_analysis"] = speedup_results
 
     return results

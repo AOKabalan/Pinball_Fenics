@@ -4,7 +4,6 @@ from simulation_deim import run_simulation
 import os
 import sys
 from datetime import datetime
-import pandas as pd
 from typing import Dict, Any
 import logging
 import uuid
@@ -33,13 +32,10 @@ def setup_logging(run_dir: str) -> None:
     # Replace stdout and stderr
     sys.stdout = TeeOutput(log_file)
     sys.stderr = TeeOutput(log_file)
-
-def run_multiple_configurations(parameter_variations: Dict[str, list]) -> pd.DataFrame:
+def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Dict[str, Any]:
     """Run multiple configurations serially"""
-    # Load base configuration
+    # Load base configuration 
     base_config = load_base_config('base_config.yaml')
-    
-    # Generate all configuration variants
     configs = generate_config_variants(base_config, parameter_variations)
     
     # Setup main output directory
@@ -54,7 +50,7 @@ def run_multiple_configurations(parameter_variations: Dict[str, list]) -> pd.Dat
     print(f"Total configurations to run: {len(configs)}")
     print(f"\nParameter variations:")
     for param, values in parameter_variations.items():
-        print(f"  {param}: {values}")
+        print(f" {param}: {values}")
     print(f"\nOutput directory: {output_dir}")
     
     results = []
@@ -62,37 +58,40 @@ def run_multiple_configurations(parameter_variations: Dict[str, list]) -> pd.Dat
     failed_runs = 0
     
     print("\n=== Starting Serial Runs ===")
-    
     # Run configurations sequentially
     for i, config in enumerate(configs, 1):
-        print(f"\nStarting configuration {i}/{len(configs)}")
-        print(f"  ROM basis: {config['max_basis']['rom']}")
-        print(f"  Training snapshots: {config['snapshots']['training']}")
+        print(f"\nConfiguration {i}/{len(configs)} is requesting green light")
+        print(f"Parameters:")
+        print(f" ROM basis: {config['max_basis']['rom']}")
+        print(f" Training snapshots: {config['snapshots']['training']}")
+        print(f" DEIM Training snapshots: {config['snapshots']['deim']}")
         
-        #try:
+        while True:
+            try:
+                response = input(f"\nDo you want to proceed with configuration {i}? (y/n): ").lower()
+                if response in ['y', 'n']:
+                    break
+                print("Please enter 'y' for yes or 'n' for no.")
+            except KeyboardInterrupt:
+                print("\nUser interrupted the program")
+                return results
+        
+        if response == 'n':
+            print(f"⚠ Configuration {i} skipped by user")
+            failed_runs += 1
+            continue  # Skip to next configuration
+            
+        
+        print(f"\nStarting configuration {i}/{len(configs)}")
         result = run_single_configuration(config, i)
         results.append(result)
         successful_runs += 1
         print(f"✓ Configuration {i} completed successfully")
-        
-        # except Exception as e:
-        #     failed_runs += 1
-        #     print(f"✗ Configuration {i} failed: {str(e)}")
     
     print(f"\n=== Final Summary ===")
     print(f"Total configurations: {len(configs)}")
     print(f"Successful runs: {successful_runs}")
     print(f"Failed runs: {failed_runs}")
-    
-    # if results:
-    #     df = pd.DataFrame(results)
-    #     csv_path = f"{output_dir}/all_results.csv"
-    #     df.to_csv(csv_path, index=False)
-    #     print(f"\nResults saved to: {csv_path}")
-    
-    # print(f"\n=== Simulation Completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===")
-    
-    # return df if results else pd.DataFrame()
     return results
 
 def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[str, Any]:
@@ -101,8 +100,8 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
         # Create unique output directory for this run
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
-    run_dir = f"runs/run_{run_number}_{config['simulation_name']}_{timestamp}_{unique_id}"
-    
+    #run_dir = f"runs/run_{run_number}_{config['simulation_name']}_{timestamp}_{unique_id}"
+    run_dir = "runs/run_1_PinballDEIM_20241127_194508_de13380a"
     # Ensure directory exists
     os.makedirs(run_dir, exist_ok=True)
     
@@ -113,6 +112,7 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
     print(f"Starting configuration {run_number} in directory: {run_dir}")
     print(f"ROM basis: {config['max_basis']['rom']}")
     print(f"Training snapshots: {config['snapshots']['training']}")
+    print(f"DEIM training snapshots: {config['snapshots']['deim']}")
     print(f"{'='*50}\n")
     
     # Save this configuration
@@ -149,15 +149,11 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
 if __name__ == "__main__":
     # Define parameter variations to test
     parameter_variations = {
-        "snapshots.training": [30, 50, 70],
-        "snapshots.deim": [30, 50, 70],
-        
+        "snapshots.training": [100],
+        "snapshots.deim": [100]
     }
     
     # Run all configurations serially
     results_df = run_multiple_configurations(parameter_variations)
     
-    print("\nSimulation Summary:")
-    if not results_df.empty:
-        print("\nResults by ROM basis:")
-        print(results_df.groupby('rom_max_basis')['run_number'].count())
+    print("\nThanks")

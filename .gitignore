@@ -13,3 +13,6 @@ NS_ROM/**/
 NS_ROM_DEIM/**/
 !NS_ROM_DEIM/data2
 !NS_ROM_DEIM/utils
+rotation_NS/**/
+!rotation_NS/mesh
+!rotation_NS/states
