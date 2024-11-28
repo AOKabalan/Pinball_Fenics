@@ -1,16 +1,16 @@
 # base_config.yaml
 simulation_name: "PinballDEIM"
 tolerances:
-  rom: 1.e-15
-  deim: 1.e-15
+  rom: 0.
+  deim: 0.
 max_basis:
-  rom: 20
-  deim: 80
+  rom: 15
+  deim: 25
 snapshots:
   training: 50
-  testing: 50
+  testing: 16
   deim: 50
-  testing_DEIM: 50
+  testing_DEIM: 25
 mesh:
   file: "data2/mesh.xdmf"
   function_file: "data2/mf.xdmf"
