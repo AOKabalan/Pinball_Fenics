@@ -438,7 +438,7 @@ def run_simulation(config):
     if config["analysis"]["deim_convergence"]:
         print("Starting DEIM convergence study...")
         err = DEIM_convergence(reduction_method, config)
-        #results["speedup_analysis"] = speedup_results
+       
 
     # Perform bifurcation analysis if enabled
     if config["bifurcation"]["enabled"]:
@@ -451,7 +451,7 @@ def run_simulation(config):
     reduction_method.error_analysis()
     if config["analysis"]["error_analysis"]:
         print("Starting error analysis...")
-       # error_analysis_pinball(reduction_method, N_max,  filename="error_analysis")
+        error_analysis_pinball(reduction_method, N_max,  filename="error_analysis")
        # results["error_analysis"] = error_results
     
     # Perform speedup analysis if enabled
