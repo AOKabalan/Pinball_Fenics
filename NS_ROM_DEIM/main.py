@@ -100,8 +100,8 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
         # Create unique output directory for this run
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
-    #run_dir = f"runs/run_{run_number}_{config['simulation_name']}_{timestamp}_{unique_id}"
-    run_dir = "runs/run_1_PinballDEIM_20241127_194508_de13380a"
+    run_dir = f"runs/run_{run_number}_{config['simulation_name']}_{timestamp}_{unique_id}"
+   
     # Ensure directory exists
     os.makedirs(run_dir, exist_ok=True)
     
@@ -146,14 +146,37 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
     #     print(f"{'!'*50}\n")
     #     raise
 
+
+
+def run_online_analysis(config: Dict[str, Any]) -> Dict[str, Any]:
+
+    offline_dir = config["analysis"]["offline_directory"]
+    
+    if not os.path.exists(offline_dir):
+        raise ValueError(f"Offline directory does not exist: {offline_dir}")
+    
+    print(f"=== Starting Offline Analysis ===")
+    print(f"Using existing directory: {offline_dir}")
+    
+    # Setup logging in the existing directory
+    setup_logging(f"{offline_dir}/offline_analysis.log")
+
+    config['simulation_name'] = offline_dir
+    results = run_simulation(base_config)
+    return results
+
+   
 if __name__ == "__main__":
     # Define parameter variations to test
     parameter_variations = {
         "snapshots.training": [100],
         "snapshots.deim": [100]
     }
-    
+    base_config = load_base_config('base_config.yaml')
     # Run all configurations serially
-    results_df = run_multiple_configurations(parameter_variations)
+    if config["analysis"]["run_online"]:
+        results_df = run_online_analysis(base_config)
+    else:
+        results_df = run_multiple_configurations(parameter_variations)
     
     print("\nThanks")

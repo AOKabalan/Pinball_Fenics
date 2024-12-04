@@ -30,3 +30,5 @@ analysis:
   error_analysis: true    
   speedup_analysis: true    
   deim_convergence: true
+  run_online: false
+  offline_directory: "runs/run_kaza"
