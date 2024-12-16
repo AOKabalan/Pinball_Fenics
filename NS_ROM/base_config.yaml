@@ -1,12 +1,12 @@
 # base_config.yaml
 simulation_name: "Pinball"
 tolerances:
-  rom: 1.e-15
+  rom: 0.
 max_basis:
   rom: 20
 snapshots:
-  training: 10
-  testing: 10
+  training: 50
+  testing: 30
 mesh:
   file: "data2/mesh.xdmf"
   function_file: "data2/mf.xdmf"
@@ -23,5 +23,5 @@ bifurcation:
   Re_num: 100.
   output_dir: "bifurcation_results"
 analysis:
-  error_analysis: false    # New parameter
-  speedup_analysis: false  # New parameter
+  error_analysis: true    # New parameter
+  speedup_analysis: true  # New parameter

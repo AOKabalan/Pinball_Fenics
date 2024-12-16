@@ -16,3 +16,6 @@ NS_ROM_DEIM/**/
 rotation_NS/**/
 !rotation_NS/mesh
 !rotation_NS/states
+navier_stokes/**/
+!navier_stokes/states
+!navier_stokes/mesh

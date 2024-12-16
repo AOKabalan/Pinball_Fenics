@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Xdmf Version="3.0">
+  <Domain>
+    <Grid GridType="Collection" CollectionType="Temporal" Name="u_out">
+      <Grid Name="u_out_0" GridType="Uniform">
+        <Topology NumberOfElements="17865" TopologyType="Triangle" NodesPerElement="3">
+          <DataItem Dimensions="17865 3" NumberType="UInt" Format="HDF">velocity_checkpoint_asymmetric.h5:u_out/u_out_0/mesh/topology</DataItem>
+        </Topology>
+        <Geometry GeometryType="XY">
+          <DataItem Dimensions="9161 2" Format="HDF">velocity_checkpoint_asymmetric.h5:u_out/u_out_0/mesh/geometry</DataItem>
+        </Geometry>
+        <Time Value="0.000000" />
+        <Attribute ItemType="FiniteElementFunction" ElementFamily="CG" ElementDegree="2" ElementCell="triangle" Name="u_out" Center="Other" AttributeType="Vector">
+          <DataItem Dimensions="214380 1" NumberType="UInt" Format="HDF">velocity_checkpoint_asymmetric.h5:u_out/u_out_0/cell_dofs</DataItem>
+          <DataItem Dimensions="81539 1" NumberType="Float" Format="HDF">velocity_checkpoint_asymmetric.h5:u_out/u_out_0/vector</DataItem>
+          <DataItem Dimensions="17866 1" NumberType="UInt" Format="HDF">velocity_checkpoint_asymmetric.h5:u_out/u_out_0/x_cell_dofs</DataItem>
+          <DataItem Dimensions="17865 1" NumberType="UInt" Format="HDF">velocity_checkpoint_asymmetric.h5:u_out/u_out_0/cells</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+  </Domain>
+</Xdmf>

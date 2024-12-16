@@ -156,7 +156,7 @@ class Pinball(NavierStokesProblem):
         
         self._nonlinear_solver_parameters.update({
             "linear_solver": "umfpack",
-            "maximum_iterations": 20,
+            "maximum_iterations": 30,
             "report": True
         })
 
@@ -256,7 +256,8 @@ def CustomizeReducedNavierStokes(ReducedNavierStokes_Base):
             self._nonlinear_solver_parameters.update({
                 "report": True,
                 "line_search": "wolfe",
-                "maximum_iterations": 20
+                "maximum_iterations": 100,
+                "maximum_residual": 1e3
             })
             self._projected_initial_state = None  # Cache for projected initial state
             self._cached_N = None  # Store N for which the projection was done
@@ -448,7 +449,7 @@ def run_simulation(config):
             config
         )
         results["bifurcation_analysis"] = bifurcation_results
-    reduction_method.error_analysis()
+    # reduction_method.error_analysis()
     if config["analysis"]["error_analysis"]:
         print("Starting error analysis...")
         error_analysis_pinball(reduction_method, N_max,  filename="error_analysis")

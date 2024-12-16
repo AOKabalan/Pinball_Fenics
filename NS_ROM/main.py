@@ -4,7 +4,7 @@ from simulation import run_simulation
 import os
 import sys
 from datetime import datetime
-import pandas as pd
+
 from typing import Dict, Any
 import logging
 import uuid
@@ -34,7 +34,7 @@ def setup_logging(run_dir: str) -> None:
     sys.stdout = TeeOutput(log_file)
     sys.stderr = TeeOutput(log_file)
 
-def run_multiple_configurations(parameter_variations: Dict[str, list]) -> pd.DataFrame:
+def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Any:
     """Run multiple configurations serially"""
     # Load base configuration
     base_config = load_base_config('base_config.yaml')
@@ -83,16 +83,8 @@ def run_multiple_configurations(parameter_variations: Dict[str, list]) -> pd.Dat
     print(f"Total configurations: {len(configs)}")
     print(f"Successful runs: {successful_runs}")
     print(f"Failed runs: {failed_runs}")
-    
-    if results:
-        df = pd.DataFrame(results)
-        csv_path = f"{output_dir}/all_results.csv"
-        df.to_csv(csv_path, index=False)
-        print(f"\nResults saved to: {csv_path}")
-    
-    print(f"\n=== Simulation Completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===")
-    
-    return df if results else pd.DataFrame()
+   
+    return results
 
 def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[str, Any]:
     """Run simulation with a single configuration"""
@@ -148,8 +140,7 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
 if __name__ == "__main__":
     # Define parameter variations to test
     parameter_variations = {
-        "snapshots.training": [8],
-        "max_basis.rom": [5]
+        "snapshots.training": [50]
     }
     
     # Run all configurations serially
