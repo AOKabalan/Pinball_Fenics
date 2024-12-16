@@ -62,7 +62,7 @@ def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Dict[s
     for i, config in enumerate(configs, 1):
         print(f"\nConfiguration {i}/{len(configs)} is requesting green light")
         print(f"Parameters:")
-        print(f" ROM basis: {config['max_basis']['rom']}")
+        print(f" DEIM basis: {config['max_basis']['deim']}")
         print(f" Training snapshots: {config['snapshots']['training']}")
         print(f" DEIM Training snapshots: {config['snapshots']['deim']}")
         
@@ -111,6 +111,7 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
     print(f"\n{'='*50}")
     print(f"Starting configuration {run_number} in directory: {run_dir}")
     print(f"ROM basis: {config['max_basis']['rom']}")
+    print(f"DEIM basis: {config['max_basis']['deim']}")
     print(f"Training snapshots: {config['snapshots']['training']}")
     print(f"DEIM training snapshots: {config['snapshots']['deim']}")
     print(f"{'='*50}\n")
@@ -169,12 +170,11 @@ def run_online_analysis(config: Dict[str, Any]) -> Dict[str, Any]:
 if __name__ == "__main__":
     # Define parameter variations to test
     parameter_variations = {
-        "snapshots.training": [100],
-        "snapshots.deim": [100]
+        "max_basis.deim": [10,15,20,30,40]
     }
     base_config = load_base_config('base_config.yaml')
     # Run all configurations serially
-    if config["analysis"]["run_online"]:
+    if base_config["analysis"]["run_online"]:
         results_df = run_online_analysis(base_config)
     else:
         results_df = run_multiple_configurations(parameter_variations)

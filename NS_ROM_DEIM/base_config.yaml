@@ -4,13 +4,13 @@ tolerances:
   rom: 0.
   deim: 0.
 max_basis:
-  rom: 15
+  rom: 20
   deim: 25
 snapshots:
   training: 50
-  testing: 16
+  testing: 30
   deim: 50
-  testing_DEIM: 25
+  testing_DEIM: 30
 mesh:
   file: "data2/mesh.xdmf"
   function_file: "data2/mf.xdmf"
@@ -19,7 +19,7 @@ initial_conditions:
 parameters:
   Re_range: [55,100]
   lifting_mu: 0.017
-  online_Re: 75
+  online_Re: 80
 bifurcation:
   enabled: false
   Re_start: 55
