@@ -1,9 +1,10 @@
 import yaml
 from config import load_base_config, generate_config_variants, save_config
-from simulation_deim import run_simulation
+from simulation import run_simulation
 import os
 import sys
 from datetime import datetime
+
 from typing import Dict, Any
 import logging
 import uuid
@@ -32,10 +33,13 @@ def setup_logging(run_dir: str) -> None:
     # Replace stdout and stderr
     sys.stdout = TeeOutput(log_file)
     sys.stderr = TeeOutput(log_file)
-def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Dict[str, Any]:
+
+def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Any:
     """Run multiple configurations serially"""
-    # Load base configuration 
+    # Load base configuration
     base_config = load_base_config('base_config.yaml')
+    
+    # Generate all configuration variants
     configs = generate_config_variants(base_config, parameter_variations)
     
     # Setup main output directory
@@ -50,7 +54,7 @@ def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Dict[s
     print(f"Total configurations to run: {len(configs)}")
     print(f"\nParameter variations:")
     for param, values in parameter_variations.items():
-        print(f" {param}: {values}")
+        print(f"  {param}: {values}")
     print(f"\nOutput directory: {output_dir}")
     
     results = []
@@ -58,50 +62,38 @@ def run_multiple_configurations(parameter_variations: Dict[str, list]) -> Dict[s
     failed_runs = 0
     
     print("\n=== Starting Serial Runs ===")
+    
     # Run configurations sequentially
     for i, config in enumerate(configs, 1):
-        print(f"\nConfiguration {i}/{len(configs)} is requesting green light")
-        print(f"Parameters:")
-        print(f" DEIM basis: {config['max_basis']['deim']}")
-        print(f" Training snapshots: {config['snapshots']['training']}")
-        print(f" DEIM Training snapshots: {config['snapshots']['deim']}")
-        
-        # while True:
-        #     try:
-        #         response = input(f"\nDo you want to proceed with configuration {i}? (y/n): ").lower()
-        #         if response in ['y', 'n']:
-        #             break
-        #         print("Please enter 'y' for yes or 'n' for no.")
-        #     except KeyboardInterrupt:
-        #         print("\nUser interrupted the program")
-        #         return results
-        
-        # if response == 'n':
-        #     print(f"⚠ Configuration {i} skipped by user")
-        #     failed_runs += 1
-        #     continue  # Skip to next configuration
-            
-        
         print(f"\nStarting configuration {i}/{len(configs)}")
+        print(f"  ROM basis: {config['max_basis']['rom']}")
+        print(f"  Training snapshots: {config['snapshots']['training']}")
+        
+        # try:
         result = run_single_configuration(config, i)
         results.append(result)
         successful_runs += 1
         print(f"✓ Configuration {i} completed successfully")
+            
+        # except Exception as e:
+        #     failed_runs += 1
+        #     print(f"✗ Configuration {i} failed: {str(e)}")
     
     print(f"\n=== Final Summary ===")
     print(f"Total configurations: {len(configs)}")
     print(f"Successful runs: {successful_runs}")
     print(f"Failed runs: {failed_runs}")
+   
     return results
 
 def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[str, Any]:
     """Run simulation with a single configuration"""
-    #try:
+    # try:
         # Create unique output directory for this run
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
     run_dir = f"runs/run_{run_number}_{config['simulation_name']}_{timestamp}_{unique_id}"
-   
+    
     # Ensure directory exists
     os.makedirs(run_dir, exist_ok=True)
     
@@ -111,9 +103,7 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
     print(f"\n{'='*50}")
     print(f"Starting configuration {run_number} in directory: {run_dir}")
     print(f"ROM basis: {config['max_basis']['rom']}")
-    print(f"DEIM basis: {config['max_basis']['deim']}")
     print(f"Training snapshots: {config['snapshots']['training']}")
-    print(f"DEIM training snapshots: {config['snapshots']['deim']}")
     print(f"{'='*50}\n")
     
     # Save this configuration
@@ -147,36 +137,16 @@ def run_single_configuration(config: Dict[str, Any], run_number: int) -> Dict[st
     #     print(f"{'!'*50}\n")
     #     raise
 
-
-
-def run_online_analysis(config: Dict[str, Any]) -> Dict[str, Any]:
-
-    offline_dir = config["analysis"]["offline_directory"]
-    
-    if not os.path.exists(offline_dir):
-        raise ValueError(f"Offline directory does not exist: {offline_dir}")
-    
-    print(f"=== Starting Offline Analysis ===")
-    print(f"Using existing directory: {offline_dir}")
-    
-    # Setup logging in the existing directory
-    setup_logging(f"{offline_dir}/offline_analysis.log")
-
-    config['simulation_name'] = offline_dir
-    results = run_simulation(base_config)
-    return results
-
-   
 if __name__ == "__main__":
     # Define parameter variations to test
     parameter_variations = {
-        "max_basis.deim": [2,4,6,8]
+        "snapshots.training": [100]
     }
-    base_config = load_base_config('base_config.yaml')
-    # Run all configurations serially
-    if base_config["analysis"]["run_online"]:
-        results_df = run_online_analysis(base_config)
-    else:
-        results_df = run_multiple_configurations(parameter_variations)
     
-    print("\nThanks")
+    # Run all configurations serially
+    results_df = run_multiple_configurations(parameter_variations)
+    
+    print("\nSimulation Summary:")
+    if not results_df.empty:
+        print("\nResults by ROM basis:")
+        print(results_df.groupby('rom_max_basis')['run_number'].count())

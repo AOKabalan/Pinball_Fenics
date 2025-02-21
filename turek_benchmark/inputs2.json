@@ -4,7 +4,7 @@
     "nu": 0.001,
     "mesh_file": "mesh/mesh.xdmf",
     "mesh_function_file": "mesh/mf.xdmf",
-    "results_dir": "study_results",
+    "results_dir": "study_results_bdf3",
     "figures_dir": "figures",
     "write_velocity": true,
     "write_pressure": true,

@@ -1,19 +1,24 @@
 {
-    "final_time": 50,
+    "final_time": 1500,
     "time_step": 0.1,
     "nu": 0.01,
+    "amplitude": -3.0,
     "mesh_file": "mesh/mesh.xdmf",
     "mesh_function_file": "mesh/mf.xdmf",
-    "results_dir": "study_results_2",
+    "results_dir": "positive_cont",
     "figures_dir": "figures",
     "write_velocity": true,
-    "write_pressure": false,
+    "write_pressure": true,
+    "write_vorticity": false,
     "flag_drag_lift": true,
     "steady_solver": false,
-    "u0_file": "velocity_checkpoint.xdmf",
-    "flag_initial_u": false,
-    "flag_write_checkpoint": false,
+    "picard": false,
+    "continuation":true,
+    "u0_file": "states/velocity_checkpoint_down.xdmf",
+    "flag_initial_u": true,
+    "flag_write_checkpoint": true,
     "flag_save_vorticity": true,
+    "flag_energy": false,
     "boundary_conditions": [
         {
             "type": "Dirichlet",
@@ -43,7 +48,7 @@
                 -1.299,
                 0.0
             ],
-            "amplitude": -1.0
+            "amplitude": -3.0
         },
         {
             "type": "Dirichlet",
@@ -55,7 +60,7 @@
                 0.0,
                 -0.75
             ],
-            "amplitude": -1.0
+            "amplitude": -3.0
         },
         {
             "type": "Dirichlet",
@@ -67,7 +72,7 @@
                 0.0,
                 0.75
             ],
-            "amplitude": -1.0
+            "amplitude": -3.0
         }
     ],
     "time_integration": "bdf3"

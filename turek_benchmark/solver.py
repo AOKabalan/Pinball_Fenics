@@ -3,6 +3,7 @@ import numpy as np
 import os
 from pathlib import Path
 
+# CALL THIS: 'TUREK script'
 def write_nothing(*args): pass
 
 class NavierStokesProblem:
@@ -70,32 +71,7 @@ class NavierStokesProblem:
             self.c_ls = []
             self.ts = []
             
-    # def calculate_forces(self, u, p, t):
-    # # Create tangential vector using UFL operations
-    #     n = self.n1  # This is the FacetNormal
-    #     # Create tangential vector (-n_y, n_x)
-    #     # Diameter = 1, rho = 1, Velocity =1
-    #     # Calculate tangential velocity
-    #     u_t = inner(as_vector((-n[1], n[0])), u)
-        
-    #     # Calculate forces using proper UFL operations
-    #     drag = assemble(2/(1.)*(
-    #         self.nu*inner(grad(u_t), n)*n[1] - p*n[0]
-    #     )*self.ds_circle)
-        
-    #     lift = assemble(-2*(
-    #         self.nu*inner(grad(u_t), n)*n[0] + p*n[1]
-    #     )*self.ds_circle)
-        
-    #      # Store forces
-    #     self.forces.append((t, drag, lift))
-    #     self.c_ds.append(drag)
-    #     self.c_ls.append(lift)
-    #     self.ts.append(t)
-        
-    #     # Log forces to file
-    #     with open(self.force_log_file, 'a') as f:
-    #         f.write(f'{t},{drag},{lift}\n')
+
     def calculate_forces(self, u, p, t):
         """
         Calculate non-dimensionalized drag and lift coefficients
@@ -118,8 +94,8 @@ class NavierStokesProblem:
         
         # Create tangential vector using normal
         n = self.n1
-        # Tangential vector (-n_y, n_x)
-        u_t = inner(as_vector((-n[1], n[0])), u)
+        # Tangential vector (-n_y, n_x)---- change to ny,-nx
+        u_t = inner(as_vector((n[1], -n[0])), u)
         
         # Calculate dimensional forces
         F_D = assemble(
@@ -188,9 +164,11 @@ class UnsteadyNavierStokes(NavierStokesProblem):
         self.T = config['final_time']
         self.method = config['time_integration']
         self.theta = config.get('theta', 0.5)
+ 
 
-    def _get_form(self, method, u, u_1, p, u_2=None, u_3=None):
+    def _get_form(self, method, u, w_1, p, u_2=None, u_3=None):
         v, q = TestFunctions(self.W)
+        u_1,p_1 = split(w_1)
         print(f"\nCreating form for {method}")
         dt = self.dt
         nu = self.nu
@@ -233,7 +211,7 @@ class UnsteadyNavierStokes(NavierStokesProblem):
                 + nu*inner(grad(u), grad(v))*dx
                 + inner(grad(u)*u, v)*dx
                 - div(v)*p*dx
-                - div(u)*q*dx
+                + div(u)*q*dx
                 )
         return F
 
@@ -241,24 +219,26 @@ class UnsteadyNavierStokes(NavierStokesProblem):
 
     def setup_solver(self, w, w_1, p=None, w_2=None, w_3=None):
         u, p = split(w)
-        u_1,p_1 = split(w_1)
+        
         print("Setting up solver with method:", self.time_method)
-
+        
         if self.time_method == "bdf2":
             u_2,p_2 = split(w_2)
-            F = self._get_form(self.time_method, u, u_1, p, u_2)
+            F = self._get_form(self.time_method, u, w_1, p, u_2)
         if self.time_method == "bdf3":
             u_2,p_2 = split(w_2)
             u_3,p_3 = split(w_3)
-            F = self._get_form(self.time_method, u, u_1, p, u_2, u_3)
-
-        if self.time_method == "bdf1":
-            F = self._get_form(self.time_method, u, u_1, p)
-
+            F = self._get_form(self.time_method, u, w_1, p, u_2, u_3)
+           
+        if self.time_method in ["bdf1", "theta"]:
+           
+            F = self._get_form(self.time_method, u, w_1, p)
+        u_1,p_1 = split(w_1)
         J = derivative(F, w)
         problem = NonlinearVariationalProblem(F, w, self.bcs, J)
         solver = NonlinearVariationalSolver(problem)
         solver.parameters['newton_solver']['linear_solver'] = 'mumps'
+        
         return solver
 
     def initialize_history(self, w):
@@ -281,6 +261,7 @@ class UnsteadyNavierStokes(NavierStokesProblem):
             self.time_method = "bdf1"
             solver = self.setup_solver(w, w_1)
             self.time_method = self.method
+            print(f'method is :{self.time_method}')
             for _ in range(iterations):
                 t += self.dt
                 self.U_inlet.t = t  
@@ -303,9 +284,9 @@ class UnsteadyNavierStokes(NavierStokesProblem):
         w = Function(self.W)
         w_1, w_2, w_3, t = self.initialize_history(w)
         v, q = TestFunctions(self.W)
-
+        print('hereaaaaaaaaaaaaa')
         solver2 = self.setup_solver(w, w_1, w_2=w_2, w_3=w_3)
-
+        print('hereaaaaaaaaaaaaa222222222')
         u, p = w.split()
         print('SOLVER IS READY')
         

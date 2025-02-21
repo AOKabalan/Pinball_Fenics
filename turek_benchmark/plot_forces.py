@@ -21,8 +21,8 @@ plt.rcParams['figure.dpi'] = 300
 
 def plot_forces():
     # Read the CSV file with the correct path
-    forces = pd.read_csv('study_results_upper_2/forces/forces_unsteady_bdf3.csv')
-    
+    # forces = pd.read_csv('study_results_upper_2/forces/forces_unsteady_bdf3.csv')
+    forces = pd.read_csv('study_results_CN/forces/forces_unsteady_theta.csv')
     # Create drag force plot
     fig1 = plt.figure(figsize=(10, 4.5))
     ax1 = fig1.add_subplot(111)
@@ -35,7 +35,8 @@ def plot_forces():
     ax1.grid(True, which="both", ls="-", alpha=0.2)
     ax1.set_box_aspect(0.4)
     plt.savefig('drag_force_plot.pdf', bbox_inches='tight', pad_inches=0.02)
-    
+     
+
     # Create lift force plot
     fig2 = plt.figure(figsize=(10, 4.5))
     ax2 = fig2.add_subplot(111)
@@ -49,7 +50,7 @@ def plot_forces():
     ax2.set_box_aspect(0.4)
     plt.savefig('lift_force_plot.pdf', bbox_inches='tight', pad_inches=0.02)
     
-    plt.show()
+    # plt.show()
 
 # Generate the plots
 print("Generating forces plots...")

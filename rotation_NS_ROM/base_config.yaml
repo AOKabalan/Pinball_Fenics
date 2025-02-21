@@ -1,12 +1,12 @@
 # base_config.yaml
-simulation_name: "Pinball"
+simulation_name: "Pinball_rotation_picard_300"
 tolerances:
   rom: 0.
 max_basis:
   rom: 20
 snapshots:
-  training: 30
-  testing: 30
+  training: 300
+  testing: 100
 mesh:
   file: "data2/mesh.xdmf"
   function_file: "data2/mf.xdmf"
@@ -15,7 +15,7 @@ initial_conditions:
 parameters:
   Re_range: [55,100]
   lifting_mu: 0.017
-  online_Re: 80
+  online_Re: 100
 bifurcation:
   enabled: false
   Re_start: 55.
@@ -23,5 +23,5 @@ bifurcation:
   Re_num: 100.
   output_dir: "bifurcation_results"
 analysis:
-  error_analysis: true    # New parameter
-  speedup_analysis: true  # New parameter
+  error_analysis: false   
+  speedup_analysis: false  

@@ -7,11 +7,11 @@ from matplotlib import rc
 plt.style.use('default')
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman']})
 rc('text', usetex=True)
-rc('axes', labelsize=9)
-rc('axes', titlesize=9)
-rc('xtick', labelsize=8)
-rc('ytick', labelsize=8)
-rc('legend', fontsize=8)
+rc('axes', labelsize=14)  # Increased from 9
+rc('axes', titlesize=14)  # Increased from 9
+rc('xtick', labelsize=11)  # Increased from 8
+rc('ytick', labelsize=11)  # Increased from 8
+rc('legend', fontsize=10)  # Slightly increased from 8
 
 # Set general plot parameters
 plt.rcParams['axes.grid'] = True
@@ -35,16 +35,16 @@ def plot_u_solution():
     
     fig = plt.figure(figsize=(10, 4.5))
     
-    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.35,
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.3,
                          left=0.08, right=0.98, top=0.85, bottom=0.15)
     
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
     
     # Plot for errors
-    ax1.semilogy(df_u['N'][:12], df_u['gmean(error_u)'][:12], 'bo-', label='Geometric Mean', 
+    ax1.semilogy(df_u['N'][:20], df_u['gmean(error_u)'][:20], 'bo-', label='Geometric Mean', 
                  markersize=5, linewidth=1.2, markerfacecolor='none')
-    ax1.semilogy(df_u['N'][:12], df_u['max(error_u)'][:12], 'rs-', label='Maximum', 
+    ax1.semilogy(df_u['N'][:20], df_u['max(error_u)'][:20], 'rs-', label='Maximum', 
                  markersize=5, linewidth=1.2, markerfacecolor='none')
     
     ax1.set_xlabel('$N$')
@@ -54,12 +54,12 @@ def plot_u_solution():
     ax1.grid(True, which="both", ls="-", alpha=0.2)
     ax1.set_xticks(df_u['N'])
     ax1.set_box_aspect(0.85)
-    #ax1.set_ylim(3e-4, 1)
-    ax1.set_xlim(0.5,12.5)
+    # ax1.set_xlim(0.5,12.5)
+    
     # Plot for relative errors
-    ax2.semilogy(df_u['N'][:12], df_u['gmean(relative_error_u)'][:12], 'bo-', label='Geometric Mean',
+    ax2.semilogy(df_u['N'][:20], df_u['gmean(relative_error_u)'][:20], 'bo-', label='Geometric Mean',
                  markersize=5, linewidth=1.2, markerfacecolor='none')
-    ax2.semilogy(df_u['N'][:12], df_u['max(relative_error_u)'][:12], 'rs-', label='Maximum',
+    ax2.semilogy(df_u['N'][:20], df_u['max(relative_error_u)'][:20], 'rs-', label='Maximum',
                  markersize=5, linewidth=1.2, markerfacecolor='none')
     
     ax2.set_xlabel('$N$')
@@ -69,8 +69,7 @@ def plot_u_solution():
     ax2.grid(True, which="both", ls="-", alpha=0.2)
     ax2.set_xticks(df_u['N'])
     ax2.set_box_aspect(0.85)
-    #ax2.set_ylim(3e-5, 1)
-    ax2.set_xlim(0.5,12.5)
+    # ax2.set_xlim(0.5,12.5)
     plt.savefig('error_u_plots.pdf', bbox_inches='tight', pad_inches=0.02)
     plt.show()
 
@@ -83,15 +82,15 @@ def plot_p_solution():
     
     fig = plt.figure(figsize=(10, 4.5))
     
-    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.35,
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.3,
                          left=0.08, right=0.98, top=0.85, bottom=0.15)
     
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
     
-    ax1.semilogy(df_p['N'][:12], df_p['gmean(error_p)'][:12], 'bo-', label='Geometric Mean',
+    ax1.semilogy(df_p['N'][:20], df_p['gmean(error_p)'][:20], 'bo-', label='Geometric Mean',
                  markersize=5, linewidth=1.2, markerfacecolor='none')
-    ax1.semilogy(df_p['N'][:12], df_p['max(error_p)'][:12], 'rs-', label='Maximum',
+    ax1.semilogy(df_p['N'][:20], df_p['max(error_p)'][:20], 'rs-', label='Maximum',
                  markersize=5, linewidth=1.2, markerfacecolor='none')
     
     ax1.set_xlabel('$N$')
@@ -101,11 +100,11 @@ def plot_p_solution():
     ax1.grid(True, which="both", ls="-", alpha=0.2)
     ax1.set_xticks(df_p['N'])
     ax1.set_box_aspect(0.85)
-    #ax1.set_ylim(3e-5, 1)
-    ax1.set_xlim(0.5,12.5)
-    ax2.semilogy(df_p['N'][:12], df_p['gmean(relative_error_p)'][:12], 'bo-', label='Geometric Mean',
+    # ax1.set_xlim(0.520.5)
+    
+    ax2.semilogy(df_p['N'][:20], df_p['gmean(relative_error_p)'][:20], 'bo-', label='Geometric Mean',
                  markersize=5, linewidth=1.2, markerfacecolor='none')
-    ax2.semilogy(df_p['N'][:12], df_p['max(relative_error_p)'][:12], 'rs-', label='Maximum',
+    ax2.semilogy(df_p['N'][:20], df_p['max(relative_error_p)'][:20], 'rs-', label='Maximum',
                  markersize=5, linewidth=1.2, markerfacecolor='none')
     
     ax2.set_xlabel('$N$')
@@ -115,7 +114,7 @@ def plot_p_solution():
     ax2.grid(True, which="both", ls="-", alpha=0.2)
     ax2.set_xticks(df_p['N'])
     ax2.set_box_aspect(0.85)
-    ax2.set_xlim(0.5,12.5)
+    # ax2.set_xlim(0.520.5)
     plt.savefig('error_p_plots.pdf', bbox_inches='tight', pad_inches=0.02)
     plt.show()
 

@@ -7,11 +7,11 @@ from matplotlib import rc
 plt.style.use('default')
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman']})
 rc('text', usetex=True)
-rc('axes', labelsize=9)
-rc('axes', titlesize=9)
-rc('xtick', labelsize=8)
-rc('ytick', labelsize=8)
-rc('legend', fontsize=8)
+rc('axes', labelsize=14)  # Increased from 9
+rc('axes', titlesize=14)  # Increased from 9
+rc('xtick', labelsize=11)  # Increased from 8
+rc('ytick', labelsize=11)  # Increased from 8
+rc('legend', fontsize=10)  # Slightly increased from 8
 
 # Set general plot parameters
 plt.rcParams['axes.grid'] = True
@@ -35,7 +35,7 @@ def plot_u_solution():
     
     fig = plt.figure(figsize=(10, 4.5))
     
-    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.35,
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.3,
                          left=0.08, right=0.98, top=0.85, bottom=0.15)
     
     ax1 = fig.add_subplot(gs[0])
@@ -81,7 +81,7 @@ def plot_p_solution():
     
     fig = plt.figure(figsize=(10, 4.5))
     
-    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.35,
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.3,
                          left=0.08, right=0.98, top=0.85, bottom=0.15)
     
     ax1 = fig.add_subplot(gs[0])

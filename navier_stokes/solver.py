@@ -3,6 +3,7 @@ import numpy as np
 import os
 from pathlib import Path
 
+# CALL THIS: 'Normal script'
 def write_nothing(*args): pass
 
 class NavierStokesProblem:
@@ -50,6 +51,12 @@ class NavierStokesProblem:
             self.w_initial = Function(self.W)
             assign(self.w_initial.sub(0), u_initial)
 
+    def write_checkpoint(self, u):
+        """Write velocity checkpoint to file"""
+        if self.config.get('flag_write_checkpoint', False):
+            checkpoint_file = XDMFFile(f'{self.results_dir}/velocity_checkpoint_symm.xdmf')
+            checkpoint_file.write_checkpoint(u, "u_out", 0, XDMFFile.Encoding.HDF5, True)
+            checkpoint_file.close()
             
     def setup_force_logging(self):
         """Setup force logging directories and files"""
@@ -68,34 +75,55 @@ class NavierStokesProblem:
             self.c_ds = []
             self.c_ls = []
             self.ts = []
-            
+   
     def calculate_forces(self, u, p, t):
-    # Create tangential vector using UFL operations
-        n = self.n1  # This is the FacetNormal
-        # Create tangential vector (-n_y, n_x)
-        # Diameter = 1, rho = 1, Velocity =1
-        # Calculate tangential velocity
-        u_t = inner(as_vector((-n[1], n[0])), u)
+        """
+        Calculate non-dimensionalized drag and lift coefficients
+        according to Turek benchmark specifications.
         
-        # Calculate forces using proper UFL operations
-        drag = assemble(2/(1.)*(
-            self.nu*inner(grad(u_t), n)*n[1] - p*n[0]
-        )*self.ds_circle)
+        Parameters:
+            - Mean inlet velocity Um = 1
+            - Cylinder diameter D = 0.1
+            - Density ρ = 1
+            - Reference values: L_ref = D = 0.1, U_ref = Um = 1
         
-        lift = assemble(-2*(
-            self.nu*inner(grad(u_t), n)*n[0] + p*n[1]
-        )*self.ds_circle)
+        Coefficients:
+            CD = 2*FD/(ρ*U_ref^2*D)
+            CL = 2*FL/(ρ*U_ref^2*D)
+        """
+        # Parameters for non-dimensionalization
+        D = 0.1  # Cylinder diameter
+        rho = 1.0  # Density
+        U_ref = 1.0  # Reference velocity (mean inlet velocity)
         
-         # Store forces
-        self.forces.append((t, drag, lift))
-        self.c_ds.append(drag)
-        self.c_ls.append(lift)
+        # Create tangential vector using normal
+        n = self.n1
+        # Tangential vector (-n_y, n_x)---- change to ny,-nx
+        u_t = inner(as_vector((n[1], -n[0])), u)
+        
+        # Calculate dimensional forces
+        F_D = assemble(
+            (self.nu*inner(grad(u_t), n)*n[1] - p*n[0])*self.ds_circle
+        )
+        
+        F_L = assemble(
+            -(self.nu*inner(grad(u_t), n)*n[0] + p*n[1])*self.ds_circle
+        )
+        
+        # Calculate non-dimensional coefficients
+        # Factor 2 comes from Turek benchmark definition
+        C_D = 2.0 * F_D / (rho * U_ref**2 * D)
+        C_L = 2.0 * F_L / (rho * U_ref**2 * D)
+        
+        # Store forces
+        self.forces.append((t, C_D, C_L))
+        self.c_ds.append(C_D)
+        self.c_ls.append(C_L)
         self.ts.append(t)
         
         # Log forces to file
         with open(self.force_log_file, 'a') as f:
-            f.write(f'{t},{drag},{lift}\n')
-        
+            f.write(f'{t},{C_D},{C_L}\n')    
     def get_prefix(self):
         return 'steady' if isinstance(self, SteadyNavierStokes) else f'unsteady_{self.method}'
 
@@ -130,6 +158,7 @@ class SteadyNavierStokes(NavierStokesProblem):
         self.writers['velocity'](u, 0)
         self.writers['pressure'](p, 0)
         self.writers['forces'](u, p, 0)
+        self.write_checkpoint(u)
         return u, p
 
 class UnsteadyNavierStokes(NavierStokesProblem):
@@ -164,7 +193,7 @@ class UnsteadyNavierStokes(NavierStokesProblem):
             + nu*inner(grad(u), grad(v))*dx
             + inner(grad(u)*u, v)*dx
             - div(v)*p*dx
-            - div(u)*q*dx
+            + div(u)*q*dx
             )
         elif method == "bdf2":
             F = (Constant(1/dt)*(Constant(1.5)*inner(u,v) - Constant(2.0)*inner(u_1,v) + Constant(0.5)*inner(u_2, v))*dx 
@@ -184,7 +213,7 @@ class UnsteadyNavierStokes(NavierStokesProblem):
                 + nu*inner(grad(u), grad(v))*dx
                 + inner(grad(u)*u, v)*dx
                 - div(v)*p*dx
-                - div(u)*q*dx
+                + div(u)*q*dx
                 )
         return F
 
@@ -275,7 +304,8 @@ class UnsteadyNavierStokes(NavierStokesProblem):
             self.writers['forces'](u, p, t)
             #return w.split()         
 
-
+        self.write_checkpoint(u)
+        
 def solve_steady_navier_stokes(**kwargs):
     solver = SteadyNavierStokes(kwargs)
     return solver.solve()

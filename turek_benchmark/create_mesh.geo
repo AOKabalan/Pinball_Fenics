@@ -1,7 +1,7 @@
 // Mesh resolution
 res = 0.01;
 coarse_res = 5*res;
-fine_res = 0.5*res;
+fine_res = 0.2*res;
 
 // Channel dimensions
 L = 2.2;

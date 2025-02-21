@@ -19,3 +19,9 @@ rotation_NS/**/
 navier_stokes/**/
 !navier_stokes/states
 !navier_stokes/mesh
+eigen_analysis/*.xdmf
+eigen_analysis/*.h5
+turek_benchmark/**/
+!turek_benchmark/mesh
+rotation_NS_ROM/**/
+!rotation_NS_ROM/data2
